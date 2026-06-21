@@ -57,10 +57,20 @@ if grep -q "oaaa.stage=2" /proc/cmdline 2>/dev/null; then
   mount -t erofs -o ro "$NEWEST" /erofs || { echo "[oaaa] FATAL: cannot mount erofs"; exec sh; }
 
   mkdir -p /data/overlay/upper /data/overlay/work /overlay
+
   mount -t overlay overlay \
-    -o lowerdir=/erofs,upperdir=/data/overlay/upper,workdir=/data/overlay/work \
+    -o lowerdir=/erofs,upperdir=/data/overlay/upper,workdir=/data/overlay/work,index=off \
     /overlay || { echo "[oaaa] FATAL: overlayfs failed"; exec sh; }
   echo "[oaaa] overlay ready, switching root..."
+
+  if grep -q "oaaa.shell=2" /proc/cmdline 2>/dev/null; then
+    echo "[oaaa] dropping to stage 2 shell (oaaa.shell=2)"
+    echo "[oaaa] modules loaded, erofs at /erofs, overlay at /overlay, data at /data"
+    exec sh
+  fi
+
+  mkdir -p /overlay/oaaa
+  mount --bind /data /overlay/oaaa
 
   mkdir -p /overlay/proc /overlay/sys /overlay/dev
   mount --move /proc /overlay/proc
@@ -80,6 +90,11 @@ else
 
   mkdir -p /data
   mount -t ext4 "$DATA_DEV" /data || { echo "[oaaa] FATAL: cannot mount data"; exec sh; }
+
+  if grep -q "oaaa.shell=1" /proc/cmdline 2>/dev/null; then
+    echo "[oaaa] dropping to stage 1 shell (oaaa.shell=1)"
+    exec sh
+  fi
 
   NEWEST=$(ls -t /data/images/*.erofs 2>/dev/null | head -1)
   [ -z "$NEWEST" ] && { echo "[oaaa] FATAL: no erofs images"; exec sh; }

@@ -1,0 +1,60 @@
+#!/bin/bash
+# oaaa-qemu - create test disk and launch QEMU for oaaa testing
+# usage: sudo ./oaaa-qemu [--fresh] [--size 12G]
+set -eu
+
+SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+DISK_IMG="$SCRIPT_DIR/oaaa-test.img"
+DISK_SIZE="30G"
+FRESH=0
+
+for arg in "$@"; do
+  case "$arg" in
+    --fresh) FRESH=1 ;;
+    --size)  shift; DISK_SIZE="$1" ;;
+  esac
+done
+
+if [[ $EUID -ne 0 ]]; then echo "must be run as root"; exit 1; fi
+
+# find the most recent erofs image
+EROFS=$(ls -t "$SCRIPT_DIR"/system*.erofs 2>/dev/null | head -1)
+[ -z "$EROFS" ] && { echo "ERROR: no system*.erofs found - run build-all first"; exit 1; }
+echo "==> using image: $(basename "$EROFS")"
+
+if [[ $FRESH -eq 1 || ! -f "$DISK_IMG" ]]; then
+  echo "==> creating $DISK_SIZE disk image..."
+  rm -f "$DISK_IMG"
+  truncate -s "$DISK_SIZE" "$DISK_IMG"
+  LOOP=$(losetup --find --show --partscan "$DISK_IMG")
+  echo "==> loop device: $LOOP"
+  echo "" | bash "$SCRIPT_DIR/oaaa-install" "$LOOP" "$EROFS"
+  losetup -d "$LOOP" 2>/dev/null || true
+  chown "${SUDO_USER:-odd}:${SUDO_USER:-odd}" "$DISK_IMG"
+  echo "==> disk ready: $DISK_IMG"
+else
+  echo "==> reusing existing $DISK_IMG (use --fresh to recreate)"
+fi
+
+# find OVMF firmware
+OVMF=""
+for f in \
+  /usr/share/edk2/x64/OVMF.4m.fd \
+  /usr/share/ovmf/x64/OVMF.fd \
+  /usr/share/OVMF/OVMF_CODE.fd; do
+  [ -f "$f" ] && { OVMF="$f"; break; }
+done
+[ -z "$OVMF" ] && { echo "ERROR: OVMF firmware not found - install edk2-ovmf"; exit 1; }
+echo "==> OVMF: $OVMF"
+
+echo "==> launching QEMU..."
+exec sudo -u "${SUDO_USER:-odd}" qemu-system-x86_64 \
+  -enable-kvm \
+  -machine q35 \
+  -m 4G \
+  -smp 4 \
+  -drive "file=$DISK_IMG,format=raw,if=virtio" \
+  -drive "if=pflash,format=raw,readonly=on,file=$OVMF" \
+  -vga virtio \
+  -display gtk \
+  -serial stdio

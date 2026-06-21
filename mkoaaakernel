@@ -10,6 +10,8 @@ KTARBALL="$KDIR.tar.xz"
 KURL="https://cdn.kernel.org/pub/linux/kernel/v6.x/$KTARBALL"
 
 if [[ $EUID -ne 0 ]]; then echo "must be run as root"; exit 1; fi
+cd "$(dirname "$(realpath "$0")")"
+SCRIPT_DIR="$(pwd)"
 
 if [ ! -d "$KDIR" ]; then
   if [ ! -f "$KTARBALL" ]; then
@@ -24,7 +26,6 @@ cd "$KDIR"
 
 echo "Configuring kernel..."
 # use embedded config (kernel.config next to this script) - tested and working
-SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 if [ -f "$SCRIPT_DIR/kernel.config" ]; then
   cp "$SCRIPT_DIR/kernel.config" .config
   make olddefconfig  # resolves compiler-specific options for this machine
