@@ -1,0 +1,55 @@
+#!/bin/bash
+# clean - remove build artifacts
+# usage: sudo ./clean [--all] [--kernel] [--image] [--disk]
+set -eu
+
+SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+ALL=0; KERNEL=0; INITRAMFS=0; IMAGE=0; DISK=0
+
+[[ $# -eq 0 ]] && { echo "usage: sudo ./clean [--kernel] [--initramfs] [--image] [--disk] [--all]"; exit 1; }
+
+for arg in "$@"; do
+  case "$arg" in
+    --all)        ALL=1 ;;
+    --kernel)     KERNEL=1 ;;
+    --initramfs)  INITRAMFS=1 ;;
+    --image)      IMAGE=1 ;;
+    --disk)       DISK=1 ;;
+  esac
+done
+
+if [[ $EUID -ne 0 ]]; then echo "must be run as root"; exit 1; fi
+
+if [[ $INITRAMFS -eq 1 || $ALL -eq 1 ]]; then
+  echo "Cleaning initramfs..."
+  rm -rf "$SCRIPT_DIR/initramfs-build" "$SCRIPT_DIR/initramfs-root"
+  rm -f "$SCRIPT_DIR/initramfs-oaaa.img"
+  echo "  removed initramfs-build/, initramfs-root/, initramfs-oaaa.img"
+fi
+
+if [[ $KERNEL -eq 1 || $ALL -eq 1 ]]; then
+  echo "Cleaning kernel..."
+  rm -f "$SCRIPT_DIR/vmlinuz-oaaa"
+  rm -rf "$SCRIPT_DIR"/linux-*/
+  rm -f "$SCRIPT_DIR"/linux-*.tar.xz
+  echo "  removed vmlinuz-oaaa, kernel source and tarball"
+fi
+
+if [[ $IMAGE -eq 1 || $ALL -eq 1 ]]; then
+  echo "Cleaning images..."
+  # unmount any stale oaaa_rootfs mounts
+  findmnt -Rn -o TARGET | grep "^$(realpath -m "$SCRIPT_DIR/oaaa_rootfs")/" | sort -r | xargs -r umount -l 2>/dev/null || true
+  rm -rf "$SCRIPT_DIR/oaaa_rootfs"
+  rm -f "$SCRIPT_DIR/system.erofs" "$SCRIPT_DIR"/system-*.erofs
+  echo "  removed oaaa_rootfs and *.erofs images"
+fi
+
+if [[ $DISK -eq 1 || $ALL -eq 1 ]]; then
+  echo "Cleaning virtual disk..."
+  # detach any loop devices using the test image
+  losetup -a | grep "oaaa-test.img" | cut -d: -f1 | xargs -r losetup -d 2>/dev/null || true
+  rm -f "$SCRIPT_DIR/oaaa-test.img"
+  echo "  removed oaaa-test.img"
+fi
+
+echo "Done."

@@ -1,0 +1,101 @@
+#!/bin/bash
+# oaaa-install - installs oaaa system to a target disk
+# usage: oaaa-install <disk> <system.erofs>
+# example: oaaa-install /dev/sda system-2026-06-21.erofs
+set -eu
+
+check_command() {
+  command -v "$1" &>/dev/null || { echo "Error: $1 not found"; exit 1; }
+}
+
+if [[ $EUID -ne 0 ]]; then echo "must be run as root"; exit 1; fi
+[[ $# -lt 2 ]] && { echo "usage: oaaa-install <disk> <erofs>"; exit 1; }
+
+DISK="$1"
+EROFS_IMG="$2"
+EROFS_NAME="$(basename "$EROFS_IMG")"
+
+[[ -b "$DISK" ]] || { echo "Error: $DISK is not a block device"; exit 1; }
+[[ -f "$EROFS_IMG" ]] || { echo "Error: $EROFS_IMG not found"; exit 1; }
+
+check_command sgdisk
+check_command mkfs.fat
+check_command mkfs.ext4
+check_command grub-install
+check_command pv
+
+echo "WARNING: This will DESTROY all data on $DISK"
+echo "Press Enter to continue or Ctrl+C to abort"
+read -r
+
+# partition: 1=ESP (512M FAT32), 2=data (rest ext4)
+sgdisk -Z "$DISK"
+sgdisk -n 1:0:+512M -t 1:ef00 -c 1:ESP "$DISK"
+sgdisk -n 2:0:0    -t 2:8300 -c 2:OAAA_DATA "$DISK"
+
+# handle partition naming: loop devices use p suffix (loop0p1), others don't (sda1)
+partprobe "$DISK" 2>/dev/null || true
+sleep 1
+if [[ "$DISK" =~ loop ]]; then P="p"; else P=""; fi
+
+# format
+mkfs.fat -F32 "${DISK}${P}1"
+mkfs.ext4 -L OAAA_DATA "${DISK}${P}2"
+
+# mount
+mkdir -p /mnt/oaaa/esp /mnt/oaaa/data
+mount "${DISK}${P}1" /mnt/oaaa/esp
+mount "${DISK}${P}2" /mnt/oaaa/data
+
+# create layout
+mkdir -p /mnt/oaaa/data/images /mnt/oaaa/data/overlay/upper /mnt/oaaa/data/overlay/work
+
+# copy erofs image
+echo "Copying $EROFS_NAME..."
+pv "$EROFS_IMG" > "/mnt/oaaa/data/images/$EROFS_NAME"
+
+# initramfs will be copied to data partition after it's built (see below)
+
+# use pre-built static initramfs (run mkoaaainitramfs first)
+INITRAMFS_SRC="$(dirname "$(realpath "$0")")/initramfs-oaaa.img"
+if [ ! -f "$INITRAMFS_SRC" ]; then
+  echo "ERROR: initramfs-oaaa.img not found - run mkoaaainitramfs first"
+  exit 1
+fi
+cp "$INITRAMFS_SRC" /mnt/oaaa/esp/initramfs-oaaa.img
+# also on data partition for stage1 kexec reference
+cp "$INITRAMFS_SRC" /mnt/oaaa/data/initramfs-oaaa.img
+
+# install grub
+grub-install --target=x86_64-efi --efi-directory=/mnt/oaaa/esp --boot-directory=/mnt/oaaa/esp/boot --removable
+
+# grub config
+cat > /mnt/oaaa/esp/boot/grub/grub.cfg <<'EOF'
+set timeout=3
+set default=0
+
+menuentry "OAAA Linux" {
+  linux /boot/vmlinuz-linux console=ttyS0,115200 console=tty0
+  initrd /initramfs-oaaa.img
+}
+EOF
+
+# use oaaa kernel if built, otherwise extract from erofs
+SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+if [ -f "$SCRIPT_DIR/vmlinuz-oaaa" ]; then
+  echo "Using pre-built oaaa kernel..."
+  cp "$SCRIPT_DIR/vmlinuz-oaaa" /mnt/oaaa/esp/boot/vmlinuz-linux
+else
+  echo "Extracting kernel from erofs (no vmlinuz-oaaa found - run mkoaaakernel first)..."
+  NEWEST_EROFS=$(ls -t /mnt/oaaa/data/images/*.erofs | head -1)
+  mkdir -p /mnt/oaaa/erofs_tmp
+  mount -t erofs -o ro "$NEWEST_EROFS" /mnt/oaaa/erofs_tmp
+  cp /mnt/oaaa/erofs_tmp/boot/vmlinuz-linux /mnt/oaaa/esp/boot/vmlinuz-linux
+  umount /mnt/oaaa/erofs_tmp
+  rmdir /mnt/oaaa/erofs_tmp
+fi
+
+umount /mnt/oaaa/esp /mnt/oaaa/data
+rmdir /mnt/oaaa/esp /mnt/oaaa/data /mnt/oaaa
+
+echo "Installation complete. Boot from $DISK"

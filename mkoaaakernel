@@ -1,0 +1,40 @@
+#!/bin/bash
+# mkoaaakernel - builds a minimal kernel for oaaa boot
+# requires: base-devel, kernel source (downloads if not present)
+set -eu
+
+NPROC=$(nproc)
+KVER="6.15.4"
+KDIR="linux-$KVER"
+KTARBALL="$KDIR.tar.xz"
+KURL="https://cdn.kernel.org/pub/linux/kernel/v6.x/$KTARBALL"
+
+if [[ $EUID -ne 0 ]]; then echo "must be run as root"; exit 1; fi
+
+if [ ! -d "$KDIR" ]; then
+  if [ ! -f "$KTARBALL" ]; then
+    echo "Downloading kernel $KVER..."
+    wget -q --show-progress "$KURL"
+  fi
+  echo "Extracting..."
+  tar xf "$KTARBALL"
+fi
+
+cd "$KDIR"
+
+echo "Configuring kernel..."
+# use embedded config (kernel.config next to this script) - tested and working
+SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+if [ -f "$SCRIPT_DIR/kernel.config" ]; then
+  cp "$SCRIPT_DIR/kernel.config" .config
+  make olddefconfig  # resolves compiler-specific options for this machine
+else
+  echo "ERROR: kernel.config not found at $SCRIPT_DIR/kernel.config"
+  exit 1
+fi
+
+echo "Building kernel with $NPROC threads..."
+make -j"$NPROC" bzImage
+
+cp arch/x86/boot/bzImage ../vmlinuz-oaaa
+echo "Done: $(realpath ../vmlinuz-oaaa)"

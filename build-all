@@ -1,0 +1,55 @@
+#!/bin/bash
+# build-all - full oaaa build: kernel + system image
+# usage: sudo ./build-all [--skip-kernel] [--skip-image]
+set -eu
+
+SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+SKIP_KERNEL=0
+SKIP_INITRAMFS=0
+SKIP_IMAGE=0
+DATE="$(date +%Y-%m-%d)"
+
+for arg in "$@"; do
+  case "$arg" in
+    --skip-kernel)     SKIP_KERNEL=1 ;;
+    --skip-initramfs)  SKIP_INITRAMFS=1 ;;
+    --skip-image)      SKIP_IMAGE=1 ;;
+  esac
+done
+
+if [[ $EUID -ne 0 ]]; then echo "must be run as root"; exit 1; fi
+
+echo "==> oaaa full build $(date)"
+
+if [[ $SKIP_KERNEL -eq 0 ]]; then
+  echo "==> [1/3] building kernel..."
+  bash "$SCRIPT_DIR/mkoaaakernel"
+  echo "==> kernel done: vmlinuz-oaaa"
+else
+  echo "==> [1/3] skipping kernel (--skip-kernel)"
+fi
+
+if [[ $SKIP_INITRAMFS -eq 0 ]]; then
+  echo "==> [2/3] building initramfs (static compile)..."
+  bash "$SCRIPT_DIR/mkoaaainitramfs"
+  echo "==> initramfs done: initramfs-oaaa.img"
+else
+  echo "==> [2/3] skipping initramfs (--skip-initramfs)"
+fi
+
+if [[ $SKIP_IMAGE -eq 0 ]]; then
+  echo "==> [3/3] building system image..."
+  bash "$SCRIPT_DIR/mkoaaafs"
+  mv -f "$SCRIPT_DIR/system.erofs" "$SCRIPT_DIR/system-$DATE.erofs"
+  echo "==> image done: system-$DATE.erofs"
+else
+  echo "==> [3/3] skipping image (--skip-image)"
+fi
+
+echo ""
+echo "==> build complete"
+echo "    kernel:     $SCRIPT_DIR/vmlinuz-oaaa"
+echo "    initramfs:  $SCRIPT_DIR/initramfs-oaaa.img"
+echo "    image:      $SCRIPT_DIR/system-$DATE.erofs"
+echo ""
+echo "To install: sudo ./oaaa-install /dev/TARGET system-$DATE.erofs"

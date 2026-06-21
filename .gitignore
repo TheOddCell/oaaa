@@ -1,0 +1,6 @@
+initramfs-*
+*.img
+linux*
+oaaa_rootfs
+*.erofs
+vmlinuz*
