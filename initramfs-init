@@ -1,0 +1,115 @@
+#!/bin/sh
+# oaaa initramfs init - two-stage boot via kexec
+# stage 1: decompresses & saves modules to data partition, kexecs EROFS kernel
+# stage 2: loads decompressed modules, mounts overlay, switch_roots
+
+mount -t proc proc /proc
+mount -t sysfs sys /sys
+mount -t devtmpfs dev /dev
+exec > /dev/console 2>&1
+exec < /dev/console
+
+if grep -q "oaaa.stage=2" /proc/cmdline 2>/dev/null; then
+  # ---- STAGE 2 ----
+  echo "[oaaa] stage 2: loading modules..."
+  # suppress kernel noise so our output is visible
+  echo 1 > /proc/sys/kernel/printk
+
+  # mount data partition to get decompressed modules
+  DATA_DEV=$(blkid 2>/dev/null | grep 'LABEL="OAAA_DATA"' | head -1 | cut -d: -f1)
+  echo "[oaaa] data dev: $DATA_DEV"
+  if [ -n "$DATA_DEV" ]; then
+    mkdir -p /data
+    mount -t ext4 "$DATA_DEV" /data 2>/dev/null
+    # load only what's needed to mount erofs+overlay; systemd handles the rest after switch_root
+    for mod in netfs erofs loop overlay; do
+      ko=$(find /data/stage2-modules -name "${mod}.ko" 2>/dev/null | head -1)
+      if [ -n "$ko" ]; then
+        insmod "$ko" 2>/dev/null && echo "[oaaa] loaded $mod" || echo "[oaaa] $mod failed (may already be built-in)"
+      else
+        echo "[oaaa] $mod.ko not found (may be built-in)"
+      fi
+    done
+    # keep data mounted - we need it for images below
+  else
+    echo "[oaaa] FATAL: OAAA_DATA not found"
+    exec sh
+  fi
+
+  # restore printk
+  echo 7 > /proc/sys/kernel/printk
+  echo "[oaaa] stage 2: setting up overlay..."
+
+  # ensure loop device nodes exist
+  for i in 0 1 2 3 4 5 6 7; do
+    [ -e "/dev/loop$i" ] || mknod "/dev/loop$i" b 7 "$i" 2>/dev/null
+  done
+
+  NEWEST=$(ls -t /data/images/*.erofs 2>/dev/null | head -1)
+  [ -z "$NEWEST" ] && { echo "[oaaa] FATAL: no erofs images"; exec sh; }
+  echo "[oaaa] image: $(basename "$NEWEST")"
+
+  # debug: check what's registered
+  echo "[oaaa] fs: $(grep erofs /proc/filesystems 2>/dev/null || echo 'erofs NOT in /proc/filesystems')"
+  echo "[oaaa] loop: $(grep loop /proc/modules 2>/dev/null | head -1 || echo 'loop NOT in /proc/modules')"
+
+  mkdir -p /erofs
+  mount -t erofs -o ro "$NEWEST" /erofs || { echo "[oaaa] FATAL: cannot mount erofs"; exec sh; }
+
+  mkdir -p /data/overlay/upper /data/overlay/work /overlay
+  mount -t overlay overlay \
+    -o lowerdir=/erofs,upperdir=/data/overlay/upper,workdir=/data/overlay/work \
+    /overlay || { echo "[oaaa] FATAL: overlayfs failed"; exec sh; }
+  echo "[oaaa] overlay ready, switching root..."
+
+  mkdir -p /overlay/proc /overlay/sys /overlay/dev
+  mount --move /proc /overlay/proc
+  mount --move /sys /overlay/sys
+  mount --move /dev /overlay/dev
+
+  exec switch_root /overlay /sbin/init
+
+else
+  # ---- STAGE 1 ----
+  echo "[oaaa] stage 1: starting..."
+  sleep 1
+
+  DATA_DEV=$(blkid 2>/dev/null | grep 'LABEL="OAAA_DATA"' | head -1 | cut -d: -f1)
+  [ -z "$DATA_DEV" ] && { echo "[oaaa] FATAL: no OAAA_DATA"; exec sh; }
+  echo "[oaaa] data: $DATA_DEV"
+
+  mkdir -p /data
+  mount -t ext4 "$DATA_DEV" /data || { echo "[oaaa] FATAL: cannot mount data"; exec sh; }
+
+  NEWEST=$(ls -t /data/images/*.erofs 2>/dev/null | head -1)
+  [ -z "$NEWEST" ] && { echo "[oaaa] FATAL: no erofs images"; exec sh; }
+
+  mkdir -p /erofs
+  mount -t erofs -o ro "$NEWEST" /erofs || { echo "[oaaa] FATAL: cannot mount erofs"; exec sh; }
+
+  KVER=$(ls /erofs/lib/modules/ 2>/dev/null | head -1)
+  echo "[oaaa] EROFS kernel: $KVER"
+
+  # decompress and save all modules to data partition
+  echo "[oaaa] extracting all modules..."
+  rm -rf /data/stage2-modules
+  mkdir -p /data/stage2-modules
+  find "/erofs/lib/modules/$KVER" -name "*.ko.zst" 2>/dev/null | while read f; do
+    name=$(basename "$f" .zst)
+    zstd -d "$f" -o "/data/stage2-modules/$name" 2>/dev/null && echo "[oaaa] extracted $name"
+  done
+  find "/erofs/lib/modules/$KVER" -name "*.ko" 2>/dev/null | while read f; do
+    cp "$f" /data/stage2-modules/
+  done
+  echo "[oaaa] modules ready: $(ls /data/stage2-modules/*.ko 2>/dev/null | wc -l) files"
+
+  echo "[oaaa] kexecing to EROFS kernel..."
+  kexec -l /erofs/boot/vmlinuz-linux \
+    --initrd=/data/initramfs-oaaa.img \
+    --append="console=tty0 oaaa.stage=2" || { echo "[oaaa] FATAL: kexec failed"; exec sh; }
+
+  umount /erofs /data 2>/dev/null
+  kexec -e
+  echo "[oaaa] FATAL: kexec -e returned"
+  exec sh
+fi

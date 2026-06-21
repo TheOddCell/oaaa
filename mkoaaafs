@@ -20,7 +20,7 @@ findmnt -Rn -o TARGET | grep "^$(realpath -m oaaa_rootfs)/" | sort -r | xargs -r
 printf "Downloading System..."
 tput smcup
 printf "Downloading System...\n"
-pacstrap -c -K "oaaa_rootfs" base linux linux-firmware linux-headers grub efibootmgr os-prober sbctl networkmanager iwd openssh curl wget dosfstools e2fsprogs f2fs-tools gptfdisk erofs-utils squashfs-tools pv sudo base-devel git arch-install-scripts python vim nano gpm man-db man-pages htop pipewire pipewire-pulse pipewire-alsa wireplumber plasma sddm konsole dolphin kate xdg-user-dirs xdg-utils noto-fonts noto-fonts-emoji ttf-dejavu firefox
+pacstrap -c -K "oaaa_rootfs" base linux linux-firmware linux-headers grub efibootmgr os-prober sbctl networkmanager iwd openssh curl wget dosfstools e2fsprogs f2fs-tools gptfdisk erofs-utils squashfs-tools pv sudo base-devel git arch-install-scripts python vim nano gpm man-db man-pages htop pipewire pipewire-pulse pipewire-alsa wireplumber plasma sddm konsole dolphin kate xdg-user-dirs xdg-utils noto-fonts noto-fonts-emoji ttf-dejavu firefox bc btop tmux
 tput rmcup
 printf "\rSetting up System... "
 arch-chroot "oaaa_rootfs" useradd -m -G wheel -s /bin/bash "user" 2>/dev/null|true

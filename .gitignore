@@ -1,4 +1,5 @@
-initramfs-*
+initramfs-root
+initramfs-build
 *.img
 linux*
 oaaa_rootfs
