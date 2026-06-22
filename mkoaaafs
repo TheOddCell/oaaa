@@ -21,7 +21,7 @@ pacstrap -c -K "oaaa_rootfs" base linux linux-firmware linux-headers grub efiboo
 arch-chroot "oaaa_rootfs" useradd -m -G wheel -s /bin/bash "user" 2>/dev/null|true
 arch-chroot "oaaa_rootfs" sh -c "echo '%wheel ALL=(ALL) NOPASSWD: ALL'>>/etc/sudoers" 2>/dev/null|true
 arch-chroot "oaaa_rootfs" visudo -c 2>/dev/null|true
-arch-chroot "oaaa_rootfs" passwd -d user 2>/dev/null|true
+arch-chroot "oaaa_rootfs" passwd -de user 2>/dev/null|true
 arch-chroot oaaa_rootfs tee -a /home/user/.bashrc > /dev/null << 'ENDBASHRC'
 if ! [ -e ~/.oaaa-firstboot ]; then
   printf '\S{PRETTY_NAME} \r (\l)\n' | sudo tee /etc/issue > /dev/null
