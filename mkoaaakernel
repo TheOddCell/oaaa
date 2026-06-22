@@ -4,10 +4,10 @@
 set -eu
 
 NPROC=$(nproc)
-KVER="6.15.4"
+KVER="7.0.8"
 KDIR="linux-$KVER"
 KTARBALL="$KDIR.tar.xz"
-KURL="https://cdn.kernel.org/pub/linux/kernel/v6.x/$KTARBALL"
+KURL="https://cdn.kernel.org/pub/linux/kernel/v7.x/$KTARBALL"
 
 if [[ $EUID -ne 0 ]]; then echo "must be run as root"; exit 1; fi
 cd "$(dirname "$(realpath "$0")")"
