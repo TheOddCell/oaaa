@@ -36,7 +36,7 @@ sgdisk -n 2:0:0    -t 2:8300 -c 2:OAAA_DATA "$DISK"
 # handle partition naming: loop devices use p suffix (loop0p1), others don't (sda1)
 partprobe "$DISK" 2>/dev/null || true
 sleep 1
-if [[ "$DISK" =~ loop ]]; then P="p"; else P=""; fi
+if [[ "$DISK" =~ loop ]] || [[ "$DISK" =~ [0-9]$ ]]; then P="p"; else P=""; fi
 
 # format
 mkfs.fat -F32 "${DISK}${P}1"
