@@ -17,20 +17,12 @@ check_command mkfs.erofs "mkfs.erofs is provided by erofs-utils on Arch Linux"
 check_command pacstrap "pacstrap is part of the arch-install-scripts package on Arch Linux."
 check_command arch-chroot "arch-chroot is part of the arch-install-scripts package on Arch Linux."
 findmnt -Rn -o TARGET | grep "^$(realpath -m oaaa_rootfs)/" | sort -r | xargs -r umount -l 2>/dev/null; rm -rf "oaaa_rootfs"; rm -f "system.erofs"; mkdir -p "oaaa_rootfs"
-printf "Downloading System..."
-tput smcup
-printf "Downloading System...\n"
-pacstrap -c -K "oaaa_rootfs" base linux linux-firmware linux-headers grub efibootmgr os-prober sbctl networkmanager iwd openssh curl wget dosfstools e2fsprogs f2fs-tools gptfdisk erofs-utils squashfs-tools pv sudo base-devel git arch-install-scripts python vim nano gpm man-db man-pages htop pipewire pipewire-pulse pipewire-alsa wireplumber plasma sddm konsole dolphin kate xdg-user-dirs xdg-utils noto-fonts noto-fonts-emoji ttf-dejavu firefox bc btop tmux $@
-tput rmcup
-printf "\rSetting up System... "
+pacstrap -c -K "oaaa_rootfs" base linux linux-firmware linux-headers grub efibootmgr os-prober sbctl networkmanager iwd openssh curl wget dosfstools e2fsprogs f2fs-tools gptfdisk erofs-utils squashfs-tools pv sudo base-devel git arch-install-scripts python vim nano gpm man-db man-pages htop pipewire pipewire-pulse pipewire-alsa wireplumber plasma-meta sddm konsole dolphin kate xdg-user-dirs xdg-utils noto-fonts noto-fonts-emoji ttf-dejavu firefox bc btop tmux$@
 arch-chroot "oaaa_rootfs" useradd -m -G wheel -s /bin/bash "user" 2>/dev/null|true
-arch-chroot "oaaa_rootfs" sh -c "echo '%wheel ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers" 2>/dev/null|true
+arch-chroot "oaaa_rootfs" sh -c "echo '%wheel ALL=(ALL) NOPASSWD: ALL'>>/etc/sudoers" 2>/dev/null|true
 arch-chroot "oaaa_rootfs" visudo -c 2>/dev/null|true
-arch-chroot "oaaa_rootfs" passwd -d user 2>/dev/null|true
-arch-chroot "oaaa_rootfs" systemctl enable NetworkManager gpm sddm plugind 2>/dev/null|true
-arch-chroot "oaaa_rootfs" passwd -d root 2>/dev/null|true
-printf "\rPackaging System... \r"
-# ensure arch-chroot didn't leave any mounts behind
+arch-chroot "oaaa_rootfs" passwd -de user 2>/dev/null|true
+arch-chroot "oaaa_rootfs" systemctl enable NetworkManager gpm plasma-login-manager 2>/dev/null|true
 for mp in proc sys dev/pts dev run; do
   while mountpoint -q "oaaa_rootfs/$mp" 2>/dev/null; do umount -l "oaaa_rootfs/$mp" 2>/dev/null; done
 done
