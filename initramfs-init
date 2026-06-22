@@ -125,7 +125,7 @@ else
   # build a cpio from the staging tree and append to base initramfs
   # linux accepts concatenated cpio archives as a single initramfs
   MODCPIO="/data/tmp-modules.cpio"
-  (cd /data/tmp-modbuild && find . | cpio -o -H newc 2>/dev/null) > "$MODCPIO"
+  (cd /data/tmp-modbuild && find . | cpio -o -H newc 2>/dev/null | zstd -1 -T0) > "$MODCPIO"
   STAGE2_IMG="/data/stage2-dynamic.img"
   cat /data/initramfs-oaaa.img "$MODCPIO" > "$STAGE2_IMG"
   echo "[oaaa] dynamic initramfs ready: $(ls -lh $STAGE2_IMG | awk '{print $5}')"
@@ -133,7 +133,7 @@ else
   echo "[oaaa] kexecing to EROFS kernel..."
   kexec -l /erofs/boot/vmlinuz-linux \
     --initrd="$STAGE2_IMG" \
-    --append="console=ttyS0,115200 oaaa.stage=2" || { echo "[oaaa] FATAL: kexec failed"; exec sh; }
+    --append="console=tty0 console=ttyS0,115200 oaaa.stage=2" || { echo "[oaaa] FATAL: kexec failed"; exec sh; }
 
   umount /erofs /data 2>/dev/null
   kexec -e
