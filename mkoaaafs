@@ -24,9 +24,9 @@ arch-chroot "oaaa_rootfs" visudo -c 2>/dev/null|true
 arch-chroot "oaaa_rootfs" passwd -de user 2>/dev/null|true
 arch-chroot oaaa_rootfs tee -a /home/user/.bashrc > /dev/null << 'ENDBASHRC'
 if ! [ -e ~/.oaaa-firstboot ]; then
-  printf '\S{PRETTY_NAME} \r (\l)\n' | sudo tee /etc/issue > /dev/null
+  printf '\\S{PRETTY_NAME} \\r (\\l)\n' | sudo tee /etc/issue > /dev/null
   sudo systemctl enable plasmalogin
-  sudo chsh -s /usr/bin/zsh
+  sudo chsh -s /usr/bin/zsh user
   touch ~/.oaaa-firstboot
   sudo systemctl reboot
 fi
