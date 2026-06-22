@@ -121,7 +121,7 @@ else
   echo "[oaaa] kexecing to EROFS kernel..."
   kexec -l /erofs/boot/vmlinuz-linux \
     --initrd=/data/initramfs-oaaa.img \
-    --append="console=tty0 oaaa.stage=2" || { echo "[oaaa] FATAL: kexec failed"; exec sh; }
+    --append="console=ttyS0,115200 oaaa.stage=2" || { echo "[oaaa] FATAL: kexec failed"; exec sh; }
 
   umount /erofs /data 2>/dev/null
   kexec -e
