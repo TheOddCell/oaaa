@@ -115,5 +115,5 @@ cp "$SCRIPT_DIR/initramfs-init" "$OUT/init"
 chmod +x "$OUT/init"
 
 # build the image
-(cd "$OUT" && find . | cpio -H newc -o | zstd -19 -T0 > "$SCRIPT_DIR/initramfs-oaaa.img")
+(cd "$OUT" && find . | cpio -H newc -o | gzip > "$SCRIPT_DIR/initramfs-oaaa.img")
 echo "==> initramfs done: $SCRIPT_DIR/initramfs-oaaa.img ($(du -sh "$SCRIPT_DIR/initramfs-oaaa.img" | cut -f1))"
