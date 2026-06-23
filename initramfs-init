@@ -19,21 +19,29 @@ if grep -q "oaaa.stage=2" /proc/cmdline 2>/dev/null; then
   KVER=$(uname -r)
   echo "[oaaa] kernel: $KVER"
 
-  for mod in netfs erofs loop overlay; do
+  sleep 2
+  for mod in nvme nvme_core netfs erofs loop overlay; do
     modprobe "$mod" 2>/dev/null && echo "[oaaa] loaded $mod" || echo "[oaaa] $mod failed/built-in"
   done
 
   echo 7 > /proc/sys/kernel/printk
   echo "[oaaa] stage 2: setting up overlay..."
 
-  # storage modules now loaded - find data partition
-  DATA_DEV=$(blkid 2>/dev/null | grep 'LABEL="OAAA_DATA"' | head -1 | cut -d: -f1)
+  # poll for OAAA_DATA - NVMe needs time to enumerate after kexec
+  echo "[oaaa] scanning for OAAA_DATA..."
+  DATA_DEV=""
+  for i in $(seq 1 30); do
+    DATA_DEV=$(blkid -t LABEL="OAAA_DATA" -o device 2>/dev/null | head -1)
+    [ -n "$DATA_DEV" ] && break
+    echo "[oaaa] waiting for OAAA_DATA ($i/30)..."
+    sleep 1
+  done
   echo "[oaaa] data dev: $DATA_DEV"
   if [ -n "$DATA_DEV" ]; then
     mkdir -p /data
     mount -t ext4 "$DATA_DEV" /data 2>/dev/null
   else
-    echo "[oaaa] FATAL: OAAA_DATA not found"
+    echo "[oaaa] FATAL: OAAA_DATA not found after 30s"
     exec sh
   fi
 
@@ -120,9 +128,13 @@ else
   done
   echo "[oaaa] modules staged: $(ls $MODSTAGE/*.ko 2>/dev/null | wc -l) files"
 
-  # run depmod now in stage 1 (not stage 2) so it doesn't block boot
-  echo "[oaaa] running depmod..."
-  depmod -b /data/tmp-modbuild -a "$KVER" 2>/dev/null && echo "[oaaa] depmod done" || echo "[oaaa] depmod failed (ignored)"
+  # run depmod in stage 1 via chroot so it doesn't block boot
+  # busybox is already in this initramfs - copy it into the staging tree for the chroot
+  echo "[oaaa] running depmod (chroot)..."
+  mkdir -p /data/tmp-modbuild/bin
+  cp /bin/busybox /data/tmp-modbuild/bin/busybox
+  chroot /data/tmp-modbuild /bin/busybox depmod -a "$KVER" 2>/dev/null \
+    && echo "[oaaa] depmod done" || echo "[oaaa] depmod failed (ignored)"
 
   # build a cpio from the staging tree and append to base initramfs
   # linux accepts concatenated cpio archives as a single initramfs
@@ -138,6 +150,19 @@ else
     --append="console=tty0 console=ttyS0,115200 oaaa.stage=2" || { echo "[oaaa] FATAL: kexec failed"; exec sh; }
 
   umount /erofs /data 2>/dev/null
+
+  # unbind USB HCDs before kexec - active DMA from xhci/ehci will cause kexec to hang
+  echo "[oaaa] quiescing USB before kexec..."
+  for drv in xhci_hcd ehci-pci ohci-pci uhci_hcd; do
+    drvpath="/sys/bus/pci/drivers/$drv"
+    [ -d "$drvpath" ] || continue
+    for d in "$drvpath"/????:??:??.?; do
+      [ -d "$d" ] || continue
+      addr=$(basename "$d")
+      echo -n "$addr" > "$drvpath/unbind" 2>/dev/null && echo "[oaaa] unbound $drv $addr"
+    done
+  done
+
   kexec -e
   echo "[oaaa] FATAL: kexec -e returned"
   exec sh
