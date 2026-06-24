@@ -6,3 +6,4 @@ oaaa_rootfs
 *.erofs
 vmlinuz*
 iso
+*.iso
