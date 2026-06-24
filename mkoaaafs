@@ -29,7 +29,7 @@ if ! [ -e ~/.oaaa-firstboot ]; then
   printf "Choose a username: "
   OLD=$(whoami)
   read NEW
-  [ -z "$NEW" ] && { echo "Choosing default: user";NEW=user }
+  [ -z "$NEW" ] && { echo "Choosing default: user"; NEW=user; }
   clear
   echo "Welcome to oaaa! - OOBE - User - Password"
   echo "Please choose a password for your user account:"
