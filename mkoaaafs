@@ -18,20 +18,49 @@ check_command pacstrap "pacstrap is part of the arch-install-scripts package on 
 check_command arch-chroot "arch-chroot is part of the arch-install-scripts package on Arch Linux."
 findmnt -Rn -o TARGET | grep "^$(realpath -m oaaa_rootfs)/" | sort -r | xargs -r umount -l 2>/dev/null; rm -rf "oaaa_rootfs"; rm -f "system.erofs"; mkdir -p "oaaa_rootfs"
 pacstrap -c -K "oaaa_rootfs" base linux linux-firmware linux-headers grub efibootmgr os-prober networkmanager iwd openssh curl wget dosfstools e2fsprogs f2fs-tools gptfdisk erofs-utils squashfs-tools pv sudo base-devel git arch-install-scripts python vim nano gpm man-db man-pages htop pipewire pipewire-pulse pipewire-alsa wireplumber plasma-meta sddm konsole dolphin kate xdg-user-dirs xdg-utils noto-fonts noto-fonts-emoji ttf-dejavu firefox bc btop tmux zsh $@
-arch-chroot "oaaa_rootfs" useradd -m -G wheel -s /bin/bash "user" 2>/dev/null|true
+arch-chroot "oaaa_rootfs" useradd -m -G wheel -s /bin/bash "oobe" 2>/dev/null|true
 arch-chroot "oaaa_rootfs" sh -c "echo '%wheel ALL=(ALL) NOPASSWD: ALL'>>/etc/sudoers" 2>/dev/null|true
 arch-chroot "oaaa_rootfs" visudo -c 2>/dev/null|true
-arch-chroot "oaaa_rootfs" passwd -de user 2>/dev/null|true
-arch-chroot oaaa_rootfs tee -a /home/user/.bashrc > /dev/null << 'ENDBASHRC'
+arch-chroot "oaaa_rootfs" passwd -d oobe 2>/dev/null|true
+arch-chroot "oaaa_rootfs" tee -a /home/oobe/.bashrc > /dev/null << 'ENDBASHRC'
 if ! [ -e ~/.oaaa-firstboot ]; then
+  clear
+  echo "Welcome to oaaa! - OOBE - User - Username"
+  printf "Choose a username: "
+  OLD=$(whoami)
+  read NEW
+  [ -z "$NEW" ] && { echo "Choosing default: user";NEW=user }
+  clear
+  echo "Welcome to oaaa! - OOBE - User - Password"
+  echo "Please choose a password for your user account:"
+  sudo passwd oobe
+  clear
+  echo "Welcome to oaaa! - OOBE - User - Admin Password"
+  echo "Please choose a password for the admin (root) account:"
+  sudo passwd
+  clear
+  echo "Welcome to oaaa! - OOBE - Networking"
+  read -r -p "Would you like to connect to/configure the internet? [Y/n] " response
+  if ! [[ "$response" =~ ^([Nn][oO]|[Nn])$ ]]; then
+    nmtui
+  fi
+  sudo shutdown -r +1
+  clear
+  echo "Welcome to oaaa! - OOBE - Configuring"
+  echo "_______________________________________________________________________________"
+  echo "[fancy user setup happening... please wait! This will take less than a minute.]"
+  echo "[after the user setup, the system will reboot.________________________________]"
   printf '\\S{PRETTY_NAME} \\r (\\l)\n' | sudo tee /etc/issue > /dev/null
   sudo systemctl enable plasmalogin
-  sudo chsh -s /usr/bin/zsh user
+  sudo chsh -s /usr/bin/zsh oobe
   touch ~/.oaaa-firstboot
-  sudo systemctl reboot
+  sudo mv /home/oobe "/home/$NEW"
+  sudo sed -i "s|oobe|$NEW|g" /etc/passwd /etc/shadow /etc/group /etc/gshadow
+  sudo systemctl reboot 2>/dev/null >/dev/null
+  sleep infinity
 fi
 ENDBASHRC
-arch-chroot oaaa_rootfs bash -c 'printf "Welcome to oaaa!\nTo set up your user, please log in as the user account in the prompt.\nThanks for using oaaa!\n" > /etc/issue'
+arch-chroot oaaa_rootfs bash -c 'printf "Welcome to oaaa!\nTo set up your user, please log in as the oobe user account in the prompt.\nThanks for using oaaa!\n" > /etc/issue'
 arch-chroot "oaaa_rootfs" systemctl enable NetworkManager gpm 2>/dev/null|true
 for mp in proc sys dev/pts dev run; do
   while mountpoint -q "oaaa_rootfs/$mp" 2>/dev/null; do umount -l "oaaa_rootfs/$mp" 2>/dev/null; done
