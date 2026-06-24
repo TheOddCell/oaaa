@@ -5,3 +5,4 @@ linux*
 oaaa_rootfs
 *.erofs
 vmlinuz*
+iso

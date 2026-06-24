@@ -4,9 +4,9 @@
 set -eu
 
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
-ALL=0; KERNEL=0; INITRAMFS=0; IMAGE=0; DISK=0
+ALL=0; KERNEL=0; INITRAMFS=0; IMAGE=0; DISK=0; ISO=0
 
-[[ $# -eq 0 ]] && { echo "usage: sudo ./clean [--kernel] [--initramfs] [--image] [--disk] [--all]"; exit 1; }
+[[ $# -eq 0 ]] && { echo "usage: sudo ./clean [--kernel] [--initramfs] [--image] [--disk] [--iso] [--all]"; exit 1; }
 
 for arg in "$@"; do
   case "$arg" in
@@ -15,6 +15,7 @@ for arg in "$@"; do
     --initramfs)  INITRAMFS=1 ;;
     --image)      IMAGE=1 ;;
     --disk)       DISK=1 ;;
+    --iso)        ISO=1 ;;
   esac
 done
 
@@ -52,4 +53,10 @@ if [[ $DISK -eq 1 || $ALL -eq 1 ]]; then
   echo "  removed oaaa-test.img"
 fi
 
+if [[ $ISO -eq 1 || $ALL -eq 1 ]]; then
+  echo "Cleaning ISOs..."
+  rm -rf iso *.iso
+  echo "  removed all iso files"
+  echo "  removed the iso directory"
+fi
 echo "Done."

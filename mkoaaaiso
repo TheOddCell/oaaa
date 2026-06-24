@@ -1,0 +1,10 @@
+#!/bin/bash
+if [[ $EUID -ne 0 ]]; then echo "This script must be run as root.";exit 1;fi
+rm -rf iso
+cp -r /usr/share/archiso/configs/releng/ iso
+cd iso
+cp ../oaaa-install airootfs/usr/local/bin/
+cp ../*.erofs airootfs/etc/system.erofs
+cd ..
+mkarchiso -v -r -w "$(mktemp -d)" -o . iso
+rm -rf iso
