@@ -33,7 +33,7 @@ file_permissions=(
   ["/usr/local/bin/oaaa-install"]="0:0:755"
 )
 EOF
-echo "Welcome to oaaa! Use oaaa-install with /etc/system.erofs to install.">>airootfs/etc/issue
+echo "Welcome to oaaa! Use oaaa-install with /etc/system.erofs to install. PLEASE NOTE: any storage except for SATA SSDs may not work and are unsupported untill the driver situation is fixed.">>airootfs/etc/issue
 cd ..
 mkarchiso -v -r -w "$(mktemp -u)" -o . iso
 rm -rf iso

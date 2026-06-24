@@ -15,8 +15,15 @@ if grep -q "oaaa.stage=2" /proc/cmdline 2>/dev/null; then
   # suppress kernel noise so our output is visible
   echo 1 > /proc/sys/kernel/printk
 
-  # mount data partition to get decompressed modules
-  DATA_DEV=$(blkid 2>/dev/null | grep 'LABEL="OAAA_DATA"' | head -1 | cut -d: -f1)
+  # poll for OAAA_DATA - NVMe needs time to enumerate after kexec
+  echo "[oaaa] scanning for OAAA_DATA..."
+  DATA_DEV=""
+  for i in $(seq 1 30); do
+    DATA_DEV=$(blkid -t LABEL="OAAA_DATA" -o device 2>/dev/null | head -1)
+    [ -n "$DATA_DEV" ] && break
+    echo "[oaaa] waiting for OAAA_DATA ($i/30)..."
+    sleep 1
+  done
   echo "[oaaa] data dev: $DATA_DEV"
   if [ -n "$DATA_DEV" ]; then
     mkdir -p /data
@@ -121,9 +128,22 @@ else
   echo "[oaaa] kexecing to EROFS kernel..."
   kexec -l /erofs/boot/vmlinuz-linux \
     --initrd=/data/initramfs-oaaa.img \
-    --append="console=tty0 oaaa.stage=2" || { echo "[oaaa] FATAL: kexec failed"; exec sh; }
+    --append="console=tty0 console=ttyS0,115200 oaaa.stage=2" || { echo "[oaaa] FATAL: kexec failed"; exec sh; }
 
   umount /erofs /data 2>/dev/null
+
+  # unbind USB HCDs before kexec - active DMA from xhci/ehci will cause kexec to hang
+  echo "[oaaa] quiescing USB before kexec..."
+  for drv in xhci_hcd ehci-pci ohci-pci uhci_hcd; do
+    drvpath="/sys/bus/pci/drivers/$drv"
+    [ -d "$drvpath" ] || continue
+    for d in "$drvpath"/????:??:??.?; do
+      [ -d "$d" ] || continue
+      addr=$(basename "$d")
+      echo -n "$addr" > "$drvpath/unbind" 2>/dev/null && echo "[oaaa] unbound $drv $addr"
+    done
+  done
+
   kexec -e
   echo "[oaaa] FATAL: kexec -e returned"
   exec sh
