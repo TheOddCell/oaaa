@@ -9,10 +9,10 @@ check_command() {
 }
 
 if [[ $EUID -ne 0 ]]; then echo "must be run as root"; exit 1; fi
-[[ $# -lt 2 ]] && { echo "usage: oaaa-install <disk> <erofs>"; exit 1; }
+[[ $# -lt 2 ]] && { echo "usage: oaaa-install <disk> [erofs]"; exit 1; }
 
 DISK="$1"
-EROFS_IMG="$2"
+EROFS_IMG=${2:-system.erofs}
 EROFS_NAME="$(basename "$EROFS_IMG")"
 
 [[ -b "$DISK" ]] || { echo "Error: $DISK is not a block device"; exit 1; }

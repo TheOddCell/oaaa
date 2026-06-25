@@ -3,8 +3,10 @@ if [[ $EUID -ne 0 ]]; then echo "This script must be run as root.";exit 1;fi
 rm -rf iso
 cp -r /usr/share/archiso/configs/releng/ iso
 cd iso
-cp ../oaaa-install airootfs/usr/local/bin/
-cp ../*.erofs airootfs/etc/system.erofs
+cp ../oaaa-install airootfs/root
+cp ../*.erofs airootfs/root/system.erofs
+cp ../initramfs-oaaa.img airootfs/root
+cp ../vmlinuz-oaaa airootfs/root
 cat >profiledef.sh<<'EOF'
 #!/usr/bin/env bash
 # shellcheck disable=SC2034
@@ -30,10 +32,10 @@ file_permissions=(
   ["/usr/local/bin/choose-mirror"]="0:0:755"
   ["/usr/local/bin/Installation_guide"]="0:0:755"
   ["/usr/local/bin/livecd-sound"]="0:0:755"
-  ["/usr/local/bin/oaaa-install"]="0:0:755"
+  ["/root/oaaa-install"]="0:0:755"
 )
 EOF
-echo "Welcome to oaaa! Use oaaa-install with /etc/system.erofs to install. PLEASE NOTE: any storage except for SATA SSDs may not work and are unsupported untill the driver situation is fixed.">>airootfs/etc/issue
+echo "Welcome to oaaa! Use ./oaaa-install to install. PLEASE NOTE: any storage except for SATA SSDs may not work and are unsupported untill the driver situation is fixed.">>airootfs/etc/issue
 cd ..
 mkarchiso -v -r -w "$(mktemp -u)" -o . iso
 rm -rf iso
