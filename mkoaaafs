@@ -17,11 +17,26 @@ check_command mkfs.erofs "mkfs.erofs is provided by erofs-utils on Arch Linux"
 check_command pacstrap "pacstrap is part of the arch-install-scripts package on Arch Linux."
 check_command arch-chroot "arch-chroot is part of the arch-install-scripts package on Arch Linux."
 findmnt -Rn -o TARGET | grep "^$(realpath -m oaaa_rootfs)/" | sort -r | xargs -r umount -l 2>/dev/null; rm -rf "oaaa_rootfs"; rm -f "system.erofs"; mkdir -p "oaaa_rootfs"
-pacstrap -c -K "oaaa_rootfs" base linux linux-firmware linux-headers grub efibootmgr os-prober networkmanager iwd openssh curl wget dosfstools e2fsprogs f2fs-tools gptfdisk erofs-utils squashfs-tools pv sudo base-devel git arch-install-scripts python vim nano gpm man-db man-pages htop pipewire pipewire-pulse pipewire-alsa wireplumber plasma-meta sddm konsole dolphin kate xdg-user-dirs xdg-utils noto-fonts noto-fonts-emoji ttf-dejavu firefox bc btop tmux zsh $@
+pacstrap -c -K "oaaa_rootfs" base linux linux-firmware linux-headers grub efibootmgr os-prober networkmanager iwd openssh curl wget dosfstools e2fsprogs f2fs-tools gptfdisk erofs-utils squashfs-tools pv sudo base-devel git arch-install-scripts python vim nano gpm man-db man-pages htop pipewire pipewire-pulse pipewire-alsa wireplumber plasma-meta sddm konsole dolphin kate xdg-user-dirs xdg-utils noto-fonts noto-fonts-emoji ttf-dejavu firefox bc btop tmux zsh
 arch-chroot "oaaa_rootfs" useradd -m -G wheel -s /bin/bash "oobe" 2>/dev/null|true
 arch-chroot "oaaa_rootfs" sh -c "echo '%wheel ALL=(ALL) NOPASSWD: ALL'>>/etc/sudoers" 2>/dev/null|true
 arch-chroot "oaaa_rootfs" visudo -c 2>/dev/null|true
 arch-chroot "oaaa_rootfs" passwd -d oobe 2>/dev/null|true
+arch-chroot "oaaa_rootfs" sh -c "cat > /home/oobe/install-yay.sh" <<'EOF'
+#!/bin/bash
+cd ~
+git clone --branch yay-bin --single-branch https://github.com/archlinux/aur.git yay-bin
+cd yay-bin
+makepkg --noconfirm --skippgpcheck -si
+cd ..
+rm -rf yay-bin
+rm install-yay.sh
+EOF
+arch-chroot "oaaa_rootfs" chmod +x /home/oobe/install-yay.sh
+arch-chroot "oaaa_rootfs" su - "oobe" -c "/home/oobe/install-yay.sh"
+if [ -n "$1" ]; then
+  arch-chroot "oaaa_rootfs" su - "oobe" -c "yay -S \"\$@\" --noconfirm" -- "$@"
+fi
 arch-chroot "oaaa_rootfs" tee -a /home/oobe/.bashrc > /dev/null << 'ENDBASHRC'
 if ! [ -e ~/.oaaa-firstboot ]; then
   clear
