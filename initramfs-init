@@ -183,6 +183,12 @@ else
   mkdir -p /tmp/initramfs-build
   (cd /tmp/initramfs-build && zcat /data/initramfs-oaaa.img | cpio -idm 2>/dev/null)
 
+  # swap the stage1 marker for a stage2 one - this is the only place stage2's
+  # initramfs is assembled, so it's the right spot to stamp it as such
+  rm -f /tmp/initramfs-build/etc/oaaa-stage1
+  mkdir -p /tmp/initramfs-build/etc
+  touch /tmp/initramfs-build/etc/oaaa-stage2
+
   # seed a previous successful boot's module load order in, if we have one,
   # so stage 2 can try it as a fast path instead of blind multi-pass retry
   if [ -f /data/oaaa-modorder ]; then

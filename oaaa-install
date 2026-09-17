@@ -37,6 +37,8 @@ sgdisk -n 2:0:0    -t 2:8300 -c 2:OAAA_DATA "$DISK"
 partprobe "$DISK" 2>/dev/null || true
 sleep 1
 if [[ "$DISK" =~ loop ]]; then P="p"; else P=""; fi
+if [[ "$DISK" =~ nvme ]]; then P="p"; else P=""; fi
+if [[ "$DISK" =~ mmcblk0 ]]; then P="p"; else P=""; fi
 
 # format
 mkfs.fat -F32 "${DISK}${P}1"

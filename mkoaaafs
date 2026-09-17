@@ -56,7 +56,7 @@ cleanup_rootfs() {
 
 cleanup_rootfs "$(realpath -m oaaa_rootfs)"; rm -rf "oaaa_rootfs"; rm -f "system.erofs"; mkdir -p "oaaa_rootfs"
 mount --bind "oaaa_rootfs" "oaaa_rootfs"
-pacstrap -c -K "oaaa_rootfs" base linux linux-firmware linux-headers grub efibootmgr os-prober networkmanager iwd openssh curl wget dosfstools e2fsprogs f2fs-tools gptfdisk erofs-utils squashfs-tools pv sudo base-devel git arch-install-scripts python vim nano gpm man-db man-pages htop pipewire pipewire-pulse pipewire-alsa wireplumber plasma-meta sddm konsole dolphin kate xdg-user-dirs xdg-utils noto-fonts noto-fonts-emoji ttf-dejavu firefox bc btop tmux zsh flatpak discover xdg-desktop-portal appstream packagekit-qt6 xdg-desktop-portal-kde
+pacstrap -c -K "oaaa_rootfs" base linux linux-firmware linux-headers grub efibootmgr os-prober networkmanager iwd openssh curl wget dosfstools e2fsprogs f2fs-tools gptfdisk erofs-utils squashfs-tools pv sudo base-devel git arch-install-scripts python vim nano gpm man-db man-pages htop pipewire pipewire-pulse pipewire-alsa wireplumber plasma-meta sddm konsole dolphin kate xdg-user-dirs xdg-utils noto-fonts noto-fonts-emoji ttf-dejavu firefox bc btop tmux zsh flatpak discover xdg-desktop-portal appstream packagekit-qt6 xdg-desktop-portal-kde gum
 arch-chroot "oaaa_rootfs" useradd -m -G wheel -s /bin/bash "oobe" 2>/dev/null|true
 arch-chroot "oaaa_rootfs" sh -c "echo '%wheel ALL=(ALL) NOPASSWD: ALL'>>/etc/sudoers" 2>/dev/null|true
 arch-chroot "oaaa_rootfs" visudo -c 2>/dev/null|true
@@ -120,3 +120,4 @@ cleanup_rootfs "oaaa_rootfs"
 mkfs.erofs -z zstd -x-1 system.erofs "oaaa_rootfs"
 cleanup_rootfs "oaaa_rootfs"
 rm -rf "oaaa_rootfs"
+

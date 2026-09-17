@@ -1,6 +1,7 @@
 #!/bin/bash
 # mkoaaainitramfs - builds a fully static initramfs for oaaa boot
-# compiles busybox, zstd, zlib, kexec-tools from source - nothing from host
+# compiles busybox, zstd, zlib, kexec-tools, gum from source - nothing from host
+# (aside from the host's go toolchain, needed to build gum, same way host gcc/make is needed for the rest)
 set -eu
 
 NPROC=$(nproc)
@@ -13,8 +14,10 @@ BUSYBOX_VER="1.37.0"
 ZLIB_VER="1.3.1"
 ZSTD_VER="1.5.6"
 KEXEC_VER="2.0.32"
+GUM_VER="0.15.2"
 
 if [[ $EUID -ne 0 ]]; then echo "must be run as root"; exit 1; fi
+command -v go >/dev/null || { echo "go toolchain required (for gum) but not found on host"; exit 1; }
 
 mkdir -p "$BUILD/src" "$SYSROOT"/{lib,include}
 
@@ -94,14 +97,32 @@ if [ ! -f "$BUILD/kexec" ]; then
   echo "==> kexec done"
 fi
 
+# ---- gum (static, TUI helper) ----
+if [ ! -f "$BUILD/gum" ]; then
+  echo "==> building gum $GUM_VER..."
+  [ -d "gum-$GUM_VER" ] || {
+    [ -f "gum-$GUM_VER.tar.gz" ] || wget -q --show-progress \
+      "https://github.com/charmbracelet/gum/archive/refs/tags/v$GUM_VER.tar.gz" \
+      -O "gum-$GUM_VER.tar.gz"
+    tar xf "gum-$GUM_VER.tar.gz"
+  }
+  cd "gum-$GUM_VER"
+  # CGO_ENABLED=0 gives a fully static, libc-free binary (pure Go, no cgo deps)
+  GOPATH="$BUILD/gopath" GOCACHE="$BUILD/gocache" CGO_ENABLED=0 \
+    go build -trimpath -ldflags="-s -w" -o "$BUILD/gum" .
+  cd "$BUILD/src"
+  echo "==> gum done"
+fi
+
 # ---- assemble initramfs ----
 echo "==> assembling initramfs..."
 rm -rf "$OUT"
-mkdir -p "$OUT"/{bin,sbin,dev,proc,sys,data,erofs,overlay,mnt,tmp,lib/modules}
+mkdir -p "$OUT"/{bin,sbin,dev,proc,sys,data,erofs,overlay,mnt,tmp,lib/modules,etc}
 
 cp "$BUILD/busybox" "$OUT/bin/busybox"
 cp "$BUILD/kexec"   "$OUT/bin/kexec"
 cp "$BUILD/zstd"    "$OUT/bin/zstd"
+cp "$BUILD/gum"     "$OUT/bin/gum"
 
 # install all busybox applets as hard links (avoids absolute symlink path issues)
 "$OUT/bin/busybox" --install "$OUT/bin"
@@ -113,6 +134,11 @@ done
 # init script
 cp "$SCRIPT_DIR/initramfs-init" "$OUT/init"
 chmod +x "$OUT/init"
+
+# marker file: only present in this (stage1) initramfs - stage2 strips it out
+# and stamps its own marker when it dynamically repacks this image (see
+# initramfs-init stage 1 section)
+touch "$OUT/etc/oaaa-stage1"
 
 # build the image
 (cd "$OUT" && find . | cpio -H newc -o | gzip > "$SCRIPT_DIR/initramfs-oaaa.img")
