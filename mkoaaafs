@@ -22,10 +22,31 @@ check_command fuser "fuser is provided by psmisc on Arch Linux"
 # left behind by pacman/makepkg) and unmount everything under it, retrying
 # since orphaned processes can otherwise keep /proc etc. "busy" for every
 # later arch-chroot call.
+kill_procs_under() {
+  local dir; dir="$(realpath -m "$1")"
+  local pid target link fd
+  for pid in /proc/[0-9]*; do
+    pid="${pid#/proc/}"
+    for link in cwd exe root; do
+      target=$(readlink -f "/proc/$pid/$link" 2>/dev/null) || continue
+      case "$target" in
+        "$dir"|"$dir"/*) kill -9 "$pid" 2>/dev/null; continue 2 ;;
+      esac
+    done
+    for fd in /proc/"$pid"/fd/*; do
+      target=$(readlink -f "$fd" 2>/dev/null) || continue
+      case "$target" in
+        "$dir"|"$dir"/*) kill -9 "$pid" 2>/dev/null; break ;;
+      esac
+    done
+  done
+  return 0
+}
+
 cleanup_rootfs() {
   local dir="$1" tries=0
   [[ -d "$dir" ]] || return 0
-  fuser -km "$dir" &>/dev/null || true
+  kill_procs_under "$dir"
   while findmnt -Rn -o TARGET "$dir" &>/dev/null && (( tries < 15 )); do
     findmnt -Rn -o TARGET "$dir" | sort -r | xargs -r umount -l 2>/dev/null
     tries=$((tries + 1))
