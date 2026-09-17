@@ -35,7 +35,7 @@ file_permissions=(
   ["/root/oaaa-install"]="0:0:755"
 )
 EOF
-echo "Welcome to oaaa! Use ./oaaa-install to install. PLEASE NOTE: any storage except for SATA SSDs may not work and are unsupported untill the driver situation is fixed.">>airootfs/etc/issue
+echo "Welcome to oaaa! Use ./oaaa-install to install.">>airootfs/etc/issue
 cd ..
 mkarchiso -v -r -w "$(mktemp -u)" -o . iso
 rm -rf iso
