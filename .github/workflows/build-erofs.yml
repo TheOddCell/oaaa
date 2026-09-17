@@ -48,7 +48,7 @@ jobs:
           sleep 3
 
           sftp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-            -i ~/.ssh/id_ed25519 -P 2222 localhost <<'SFTP_EOF'
+            -i ~/.ssh/id_ed25519 -P 2222 odd@localhost <<'SFTP_EOF'
           put system.erofs Public/oaaa/system.erofs.new
           rename Public/oaaa/system.erofs.new Public/oaaa/system.erofs
           bye
