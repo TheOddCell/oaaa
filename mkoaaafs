@@ -35,7 +35,7 @@ sudo rm install-yay.sh
 EOF
 arch-chroot "oaaa_rootfs" chmod +x /home/oobe/install-yay.sh
 arch-chroot "oaaa_rootfs" su - "oobe" -c "/home/oobe/install-yay.sh"
-if [ -v 1 ]; then
+if [ "$#" -ge 1 ]; then
   arch-chroot "oaaa_rootfs" su - "oobe" -c "yay -S \"\$@\" --noconfirm" -- "$@"
 fi
 arch-chroot "oaaa_rootfs" tee -a /home/oobe/.bashrc > /dev/null << 'ENDBASHRC'
