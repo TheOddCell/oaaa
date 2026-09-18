@@ -194,7 +194,7 @@ jobs:
           kill "$PID"
 
   build-iso:
-    needs: [upload-erofs, upload-initramfs, upload-kernel]
+    needs: [build-erofs, build-initramfs, build-kernel]
     runs-on: ubuntu-latest
     container:
       image: archlinux:base-devel
@@ -204,15 +204,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Download erofs artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: system.erofs
+
+      - name: Download initramfs artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: initramfs-oaaa.img
+
+      - name: Download kernel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vmlinuz-oaaa
+
       - name: Install build dependencies
         run: |
           pacman -Sy --noconfirm --needed archiso openssh curl
-
-      - name: Fetch published artifacts
-        run: |
-          curl -fL -o system.erofs https://files.obsidianos.xyz/~odd/oaaa/system.erofs
-          curl -fL -o initramfs-oaaa.img https://files.obsidianos.xyz/~odd/oaaa/initramfs-oaaa.img
-          curl -fL -o vmlinuz-oaaa https://files.obsidianos.xyz/~odd/oaaa/vmlinuz-oaaa
 
       - name: Build ISO
         run: |
