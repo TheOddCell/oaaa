@@ -202,7 +202,7 @@ else
   # gpu, bluetooth, etc drivers. keep storage controllers (nvme/ata/scsi/block/
   # md), virtio (needed for QEMU virtio-blk/scsi, not "network" even though
   # it's virtualization-adjacent), filesystems, and their crypto/lib deps.
-  MOD_ALLOWLIST='kernel/drivers/nvme/|kernel/drivers/ata/|kernel/drivers/scsi/|kernel/drivers/block/|kernel/drivers/md/|kernel/drivers/virtio/|kernel/drivers/usb/storage/|kernel/fs/|kernel/lib/|kernel/crypto/'
+  MOD_ALLOWLIST='kernel/drivers/nvme/|kernel/drivers/ata/|kernel/drivers/scsi/|kernel/drivers/block/|kernel/drivers/md/|kernel/drivers/virtio/|kernel/drivers/usb/storage/|kernel/drivers/hid/|kernel/drivers/input/|kernel/fs/|kernel/lib/|kernel/crypto/'
   find "/erofs/lib/modules/$KVER" -name "*.ko.zst" 2>/dev/null | grep -E "$MOD_ALLOWLIST" | while read f; do
     name=$(basename "$f" .zst)
     zstd -d "$f" -o "/tmp/initramfs-build/lib/modules/$KVER/$name" 2>/dev/null && echo "[oaaa] embedded $name"

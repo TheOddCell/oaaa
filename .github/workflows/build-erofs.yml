@@ -1,4 +1,4 @@
-name: Build and upload oaaa erofs
+name: Build and upload oaaa images
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
     - cron: '0 0 * * *'
 
 jobs:
-  build:
+  build-erofs:
     runs-on: ubuntu-latest
     container:
       image: archlinux:base-devel
@@ -51,6 +51,95 @@ jobs:
             -i ~/.ssh/id_ed25519 -P 2222 odd@localhost <<'SFTP_EOF'
           put system.erofs Public/oaaa/system.erofs.new
           rename Public/oaaa/system.erofs.new Public/oaaa/system.erofs
+          bye
+          SFTP_EOF
+
+          kill "$PID"
+
+  build-initramfs:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+      options: --privileged
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          pacman -Sy --noconfirm --needed base-devel wget openssh curl
+
+      - name: Build initramfs
+        run: ./mkoaaainitramfs
+
+      - name: Install cloudflared
+        run: |
+          curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
+          chmod +x /usr/local/bin/cloudflared
+
+      - name: Upload via cloudflared tunnel + sftp
+        env:
+          PRVKEY: ${{ secrets.PRVKEY }}
+          # TUNNEL_SERVICE_TOKEN_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          # TUNNEL_SERVICE_TOKEN_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$PRVKEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+          cloudflared access tcp --hostname ssh.obsidianos.xyz --listener 127.0.0.1:2222 &
+          PID=$!
+          sleep 3
+
+          sftp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            -i ~/.ssh/id_ed25519 -P 2222 odd@localhost <<'SFTP_EOF'
+          put initramfs-oaaa.img Public/oaaa/initramfs-oaaa.img.new
+          rename Public/oaaa/initramfs-oaaa.img.new Public/oaaa/initramfs-oaaa.img
+          bye
+          SFTP_EOF
+
+          kill "$PID"
+
+  build-kernel:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          pacman -Sy --noconfirm --needed base-devel bc flex bison libelf ncurses openssh curl wget
+
+      - name: Build kernel
+        run: ./mkoaaakernel
+
+      - name: Install cloudflared
+        run: |
+          curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
+          chmod +x /usr/local/bin/cloudflared
+
+      - name: Upload via cloudflared tunnel + sftp
+        env:
+          PRVKEY: ${{ secrets.PRVKEY }}
+          # TUNNEL_SERVICE_TOKEN_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          # TUNNEL_SERVICE_TOKEN_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$PRVKEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+          cloudflared access tcp --hostname ssh.obsidianos.xyz --listener 127.0.0.1:2222 &
+          PID=$!
+          sleep 3
+
+          sftp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            -i ~/.ssh/id_ed25519 -P 2222 odd@localhost <<'SFTP_EOF'
+          put vmlinuz-oaaa Public/oaaa/vmlinuz-oaaa.new
+          rename Public/oaaa/vmlinuz-oaaa.new Public/oaaa/vmlinuz-oaaa
           bye
           SFTP_EOF
 
