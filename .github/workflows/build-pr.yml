@@ -1,0 +1,120 @@
+name: Build (PR/dispatch, no upload)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build-erofs:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+      options: --privileged
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          pacman -Sy --noconfirm --needed erofs-utils arch-install-scripts psmisc util-linux openssh curl
+
+      - name: Build erofs
+        run: ./mkoaaafs
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: system.erofs
+          path: system.erofs
+          retention-days: 90
+
+  build-initramfs:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+      options: --privileged
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          pacman -Sy --noconfirm --needed base-devel wget openssh curl go
+
+      - name: Build initramfs
+        run: ./mkoaaainitramfs
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: initramfs-oaaa.img
+          path: initramfs-oaaa.img
+          retention-days: 90
+
+  build-kernel:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          pacman -Sy --noconfirm --needed base-devel bc flex bison libelf ncurses openssh curl wget
+
+      - name: Build kernel
+        run: ./mkoaaakernel
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vmlinuz-oaaa
+          path: vmlinuz-oaaa
+          retention-days: 90
+
+  build-iso:
+    needs: [build-erofs, build-initramfs, build-kernel]
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+      options: --privileged
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download erofs artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: system.erofs
+
+      - name: Download initramfs artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: initramfs-oaaa.img
+
+      - name: Download kernel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vmlinuz-oaaa
+
+      - name: Install build dependencies
+        run: |
+          pacman -Sy --noconfirm --needed archiso openssh curl
+
+      - name: Build ISO
+        run: |
+          ./mkoaaaiso
+          mv "$(ls oaaa-*.iso | tail -1)" oaaa.iso
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: oaaa.iso
+          path: oaaa.iso
+          retention-days: 90
