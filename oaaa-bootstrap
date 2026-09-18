@@ -17,6 +17,7 @@ fi
 if [[ $EUID -ne 0 ]]; then echo "This script must be run as root."; exit 1; fi
 
 echo "==> live Arch ISO detected"
+mount -o remount,size=75% /run/archiso/cowspace
 pacman -Syy
 
 INSTALL_DEPS=(git gptfdisk dosfstools e2fsprogs grub efibootmgr pv curl)
