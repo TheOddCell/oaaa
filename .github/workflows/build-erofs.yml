@@ -25,12 +25,68 @@ jobs:
       - name: Build erofs
         run: ./mkoaaafs
 
-      - name: Upload artifact for build-iso
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: system.erofs
           path: system.erofs
           retention-days: 1
+
+  build-initramfs:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+      options: --privileged
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          pacman -Sy --noconfirm --needed base-devel wget openssh curl go
+
+      - name: Build initramfs
+        run: ./mkoaaainitramfs
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: initramfs-oaaa.img
+          path: initramfs-oaaa.img
+          retention-days: 1
+
+  build-kernel:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          pacman -Sy --noconfirm --needed base-devel bc flex bison libelf ncurses openssh curl wget
+
+      - name: Build kernel
+        run: ./mkoaaakernel
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vmlinuz-oaaa
+          path: vmlinuz-oaaa
+          retention-days: 1
+
+  upload-erofs:
+    needs: [build-erofs]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: system.erofs
 
       - name: Install cloudflared
         run: |
@@ -63,29 +119,14 @@ jobs:
 
           kill "$PID"
 
-  build-initramfs:
+  upload-initramfs:
+    needs: [build-initramfs]
     runs-on: ubuntu-latest
-    container:
-      image: archlinux:base-devel
-      options: --privileged
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install build dependencies
-        run: |
-          pacman -Sy --noconfirm --needed base-devel wget openssh curl go
-
-      - name: Build initramfs
-        run: ./mkoaaainitramfs
-
-      - name: Upload artifact for build-iso
-        uses: actions/upload-artifact@v4
+      - name: Download artifact
+        uses: actions/download-artifact@v4
         with:
           name: initramfs-oaaa.img
-          path: initramfs-oaaa.img
-          retention-days: 1
 
       - name: Install cloudflared
         run: |
@@ -115,28 +156,14 @@ jobs:
 
           kill "$PID"
 
-  build-kernel:
+  upload-kernel:
+    needs: [build-kernel]
     runs-on: ubuntu-latest
-    container:
-      image: archlinux:base-devel
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install build dependencies
-        run: |
-          pacman -Sy --noconfirm --needed base-devel bc flex bison libelf ncurses openssh curl wget
-
-      - name: Build kernel
-        run: ./mkoaaakernel
-
-      - name: Upload artifact for build-iso
-        uses: actions/upload-artifact@v4
+      - name: Download artifact
+        uses: actions/download-artifact@v4
         with:
           name: vmlinuz-oaaa
-          path: vmlinuz-oaaa
-          retention-days: 1
 
       - name: Install cloudflared
         run: |
@@ -167,7 +194,7 @@ jobs:
           kill "$PID"
 
   build-iso:
-    needs: [build-erofs, build-initramfs, build-kernel]
+    needs: [upload-erofs, upload-initramfs, upload-kernel]
     runs-on: ubuntu-latest
     container:
       image: archlinux:base-devel
@@ -177,27 +204,36 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download erofs artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: system.erofs
-
-      - name: Download initramfs artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: initramfs-oaaa.img
-
-      - name: Download kernel artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: vmlinuz-oaaa
-
       - name: Install build dependencies
         run: |
           pacman -Sy --noconfirm --needed archiso openssh curl
 
+      - name: Fetch published artifacts
+        run: |
+          curl -fL -o system.erofs https://files.obsidianos.xyz/~odd/oaaa/system.erofs
+          curl -fL -o initramfs-oaaa.img https://files.obsidianos.xyz/~odd/oaaa/initramfs-oaaa.img
+          curl -fL -o vmlinuz-oaaa https://files.obsidianos.xyz/~odd/oaaa/vmlinuz-oaaa
+
       - name: Build ISO
-        run: ./mkoaaaiso
+        run: |
+          ./mkoaaaiso
+          mv "$(ls oaaa-*.iso | tail -1)" oaaa.iso
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: oaaa.iso
+          path: oaaa.iso
+          retention-days: 1
+
+  upload-iso:
+    needs: [build-iso]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: oaaa.iso
 
       - name: Install cloudflared
         run: |
@@ -218,10 +254,9 @@ jobs:
           PID=$!
           sleep 3
 
-          ISO="$(ls oaaa-*.iso | tail -1)"
           sftp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-            -i ~/.ssh/id_ed25519 -P 2222 odd@localhost <<SFTP_EOF
-          put $ISO Public/oaaa/oaaa.iso.new
+            -i ~/.ssh/id_ed25519 -P 2222 odd@localhost <<'SFTP_EOF'
+          put oaaa.iso Public/oaaa/oaaa.iso.new
           rename Public/oaaa/oaaa.iso.new Public/oaaa/oaaa.iso
           bye
           SFTP_EOF
