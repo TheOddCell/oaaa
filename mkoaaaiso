@@ -1,0 +1,75 @@
+#!/bin/bash
+# mkoaaaiso - builds a live/rescue ISO that bundles the oaaa-install script
+# plus prebuilt kernel/initramfs/erofs artifacts, so booting it and running
+# ./oaaa-install is the entire install procedure - no network needed.
+# usage: sudo ./mkoaaaiso [erofs] [initramfs] [vmlinuz]
+set -eu
+
+SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+cd "$SCRIPT_DIR"
+
+EROFS_IMG="${1:-system.erofs}"
+INITRAMFS_IMG="${2:-initramfs-oaaa.img}"
+VMLINUZ_IMG="${3:-vmlinuz-oaaa}"
+
+check_command() {
+  command -v "$1" &>/dev/null || { echo "Error: $1 not found (are you on Arch with archiso installed?)"; exit 1; }
+}
+
+if [[ $EUID -ne 0 ]]; then echo "This script must be run as root."; exit 1; fi
+
+check_command mkarchiso
+[[ -d /usr/share/archiso/configs/releng ]] || { echo "Error: /usr/share/archiso/configs/releng not found - install the archiso package"; exit 1; }
+
+for f in "$EROFS_IMG" "$INITRAMFS_IMG" "$VMLINUZ_IMG" oaaa-install; do
+  [[ -f "$f" ]] || { echo "Error: $f not found next to this script"; exit 1; }
+done
+
+rm -rf iso work
+cp -r /usr/share/archiso/configs/releng/ iso
+cd iso
+
+cp ../oaaa-install airootfs/root/oaaa-install
+cp "../$EROFS_IMG" airootfs/root/system.erofs
+cp "../$INITRAMFS_IMG" airootfs/root/initramfs-oaaa.img
+cp "../$VMLINUZ_IMG" airootfs/root/vmlinuz-oaaa
+
+cat >profiledef.sh <<'EOF'
+#!/usr/bin/env bash
+# shellcheck disable=SC2034
+
+iso_name="oaaa"
+iso_label="OAAARCH_$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y%m)"
+iso_publisher="TheOddCell <https://oddcell.ca/>"
+iso_application="Odd And Atomic Arch Live/Rescue Disk"
+iso_version="$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y.%m.%d)"
+install_dir="oaaa"
+buildmodes=('iso')
+bootmodes=('bios.syslinux'
+           'uefi.systemd-boot')
+pacman_conf="pacman.conf"
+airootfs_image_type="squashfs"
+airootfs_image_tool_options=('-comp' 'xz' '-Xbcj' 'x86' '-b' '1M' '-Xdict-size' '1M')
+bootstrap_tarball_compression=('zstd' '-c' '-T0' '--auto-threads=logical' '--long' '-19')
+file_permissions=(
+  ["/etc/shadow"]="0:0:400"
+  ["/root"]="0:0:750"
+  ["/root/.automated_script.sh"]="0:0:755"
+  ["/root/.gnupg"]="0:0:700"
+  ["/usr/local/bin/choose-mirror"]="0:0:755"
+  ["/usr/local/bin/Installation_guide"]="0:0:755"
+  ["/usr/local/bin/livecd-sound"]="0:0:755"
+  ["/root/oaaa-install"]="0:0:755"
+)
+EOF
+
+{
+  echo ""
+  echo "Welcome to oaaa! The install artifacts are already on this disk -"
+  echo "run: ./oaaa-install <target-disk> system.erofs"
+} >> airootfs/etc/issue
+
+cd ..
+mkarchiso -v -r -w "$(mktemp -d)" -o . iso
+rm -rf iso work
+echo "Done: $(ls "$SCRIPT_DIR"/oaaa-*.iso 2>/dev/null | tail -1)"

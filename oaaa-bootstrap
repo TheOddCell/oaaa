@@ -1,0 +1,46 @@
+#!/bin/bash
+# oaaa-bootstrap - run from a live Arch ISO to set up everything needed to
+# either install oaaa (default) or build it from source (--build).
+# usage: ./oaaa-bootstrap [--build]
+set -eu
+
+BUILD=0
+for arg in "${1:-}" "${2:-}"; do
+  [[ "$arg" == "--build" ]] && BUILD=1
+done
+
+if ! grep -q 'archiso' /proc/cmdline 2>/dev/null; then
+  echo "This doesn't look like a live Arch ISO (no 'archiso' in /proc/cmdline) - aborting."
+  exit 1
+fi
+
+if [[ $EUID -ne 0 ]]; then echo "This script must be run as root."; exit 1; fi
+
+echo "==> live Arch ISO detected"
+pacman -Syy
+
+INSTALL_DEPS=(git gptfdisk dosfstools e2fsprogs grub efibootmgr pv curl)
+BUILD_DEPS=(base-devel bc flex bison libelf ncurses wget go erofs-utils arch-install-scripts psmisc util-linux openssh)
+
+if [[ $BUILD -eq 1 ]]; then
+  echo "==> installing install + build dependencies"
+  pacman -S --noconfirm --needed "${INSTALL_DEPS[@]}" "${BUILD_DEPS[@]}"
+else
+  echo "==> installing install-only dependencies"
+  pacman -S --noconfirm --needed "${INSTALL_DEPS[@]}"
+fi
+
+echo "==> cloning oaaa"
+rm -rf oaaa
+git clone https://github.com/theoddcell/oaaa
+cd oaaa
+
+if [[ $BUILD -eq 1 ]]; then
+  echo "==> build deps installed, ready for ./build-all - artifacts not downloaded"
+else
+  echo "==> downloading prebuilt artifacts"
+  curl -fL -o vmlinuz-oaaa https://files.obsidianos.xyz/~odd/oaaa/vmlinuz-oaaa
+  curl -fL -o initramfs-oaaa.img https://files.obsidianos.xyz/~odd/oaaa/initramfs-oaaa.img
+  curl -fL -o system.erofs https://files.obsidianos.xyz/~odd/oaaa/system.erofs
+  echo "==> ready: sudo ./oaaa-install <target-disk> system.erofs"
+fi

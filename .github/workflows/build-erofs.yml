@@ -25,6 +25,13 @@ jobs:
       - name: Build erofs
         run: ./mkoaaafs
 
+      - name: Upload artifact for build-iso
+        uses: actions/upload-artifact@v4
+        with:
+          name: system.erofs
+          path: system.erofs
+          retention-days: 1
+
       - name: Install cloudflared
         run: |
           curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
@@ -73,6 +80,13 @@ jobs:
       - name: Build initramfs
         run: ./mkoaaainitramfs
 
+      - name: Upload artifact for build-iso
+        uses: actions/upload-artifact@v4
+        with:
+          name: initramfs-oaaa.img
+          path: initramfs-oaaa.img
+          retention-days: 1
+
       - name: Install cloudflared
         run: |
           curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
@@ -117,6 +131,13 @@ jobs:
       - name: Build kernel
         run: ./mkoaaakernel
 
+      - name: Upload artifact for build-iso
+        uses: actions/upload-artifact@v4
+        with:
+          name: vmlinuz-oaaa
+          path: vmlinuz-oaaa
+          retention-days: 1
+
       - name: Install cloudflared
         run: |
           curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
@@ -140,6 +161,68 @@ jobs:
             -i ~/.ssh/id_ed25519 -P 2222 odd@localhost <<'SFTP_EOF'
           put vmlinuz-oaaa Public/oaaa/vmlinuz-oaaa.new
           rename Public/oaaa/vmlinuz-oaaa.new Public/oaaa/vmlinuz-oaaa
+          bye
+          SFTP_EOF
+
+          kill "$PID"
+
+  build-iso:
+    needs: [build-erofs, build-initramfs, build-kernel]
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+      options: --privileged
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download erofs artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: system.erofs
+
+      - name: Download initramfs artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: initramfs-oaaa.img
+
+      - name: Download kernel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vmlinuz-oaaa
+
+      - name: Install build dependencies
+        run: |
+          pacman -Sy --noconfirm --needed archiso openssh curl
+
+      - name: Build ISO
+        run: ./mkoaaaiso
+
+      - name: Install cloudflared
+        run: |
+          curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
+          chmod +x /usr/local/bin/cloudflared
+
+      - name: Upload via cloudflared tunnel + sftp
+        env:
+          PRVKEY: ${{ secrets.PRVKEY }}
+          # TUNNEL_SERVICE_TOKEN_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          # TUNNEL_SERVICE_TOKEN_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$PRVKEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+          cloudflared access tcp --hostname ssh.obsidianos.xyz --listener 127.0.0.1:2222 &
+          PID=$!
+          sleep 3
+
+          ISO="$(ls oaaa-*.iso | tail -1)"
+          sftp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            -i ~/.ssh/id_ed25519 -P 2222 odd@localhost <<SFTP_EOF
+          put $ISO Public/oaaa/oaaa.iso.new
+          rename Public/oaaa/oaaa.iso.new Public/oaaa/oaaa.iso
           bye
           SFTP_EOF
 
