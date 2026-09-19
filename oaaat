@@ -3,6 +3,12 @@ if [ "$0" != "/oaaa/oaaat" ] && [ -f "/oaaa/oaaat" ]; then # yes hardcoded to oa
   echo "Using system oaaat."
   exec "/oaaa/oaaat"
 fi
+reisub() {
+  printf '%s\n' 1 > /proc/sys/kernel/sysrq || return 1
+  printf '%s\n' r e i s u b | while IFS= read -r key; do
+    printf '%s' "$key" > /proc/sysrq-trigger || exit 1
+  done
+}
 choose() {
   gum choose --header.foreground="" --selected.foreground="" --cursor.foreground="" --no-show-help --header=""|tee /dev/stderr
 }
@@ -70,7 +76,7 @@ elif [ "$choice" = "Factory Reset" ]; then
   echo "Are you sure? This will *DELETE ALL YOUR USER DATA* and is not recoverable."
   if [ "$(printf 'Cancel\nYes\n'|choose)" = "Yes" ]; then
     touch "$datadir/oaaa-factory-reset"
-    reboot
+    reisub
     echo "Will do on restart."
   fi
 elif [ "$choice" = "Cleanup Reset" ]; then
@@ -95,7 +101,7 @@ elif [ "$choice" = "Update OAAA" ]; then
   curl -fL -o "/boot/vmlinuz-linux" https://files.obsidianos.xyz/~odd/oaaa/vmlinuz-oaaa
   echo "Updated!"
 elif [ "$choice" = "Reboot" ]; then
-  reboot
+  reisub
 else
   echo "Done."
   exit 0
