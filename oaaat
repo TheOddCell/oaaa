@@ -34,7 +34,7 @@ elif [ -d "/oaaa" ]; then
   if [ "$(ls "$datadir/images" | wc -l)" -ne 1 ]; then
     choices="${choices}Rollback\nDelete Snapshot\n"
   fi
-  choices="${choices}Download System Update\nUpdate OAAA\nReboot"
+  choices="${choices}Download System Update\nUpdate OAAA\nReboot\n"
 else
   echo "ERROR: not on oaaa"
   exit 1
@@ -70,6 +70,7 @@ elif [ "$choice" = "Factory Reset" ]; then
   echo "Are you sure? This will *DELETE ALL YOUR USER DATA* and is not recoverable."
   if [ "$(printf 'Cancel\nYes\n'|choose)" = "Yes" ]; then
     touch "$datadir/oaaa-factory-reset"
+    sudo restart
     echo "Will do on restart."
   fi
 elif [ "$choice" = "Cleanup Reset" ]; then
@@ -94,7 +95,7 @@ elif [ "$choice" = "Update OAAA" ]; then
   curl -fL -o "/boot/vmlinuz-linux" https://files.obsidianos.xyz/~odd/oaaa/vmlinuz-oaaa
   echo "Updated!"
 elif [ "$choice" = "Reboot" ]; then
-  reboot
+  sudo reboot
 else
   echo "Done."
   exit 0
