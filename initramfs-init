@@ -105,7 +105,7 @@ $ko"
     echo "$LOAD_ORDER" | grep -v '^$' > /data/oaaa-modorder 2>/dev/null
   else
     echo "[oaaa] FATAL: OAAA_DATA not found"
-    exec sh
+    exec setsid cttyhack sh
   fi
 
   echo "[oaaa] stage 2: setting up overlay..."
@@ -116,7 +116,7 @@ $ko"
   done
 
   NEWEST=$(ls -t /data/images/*.erofs 2>/dev/null | head -1)
-  [ -z "$NEWEST" ] && { echo "[oaaa] FATAL: no erofs images"; exec sh; }
+  [ -z "$NEWEST" ] && { echo "[oaaa] FATAL: no erofs images"; exec setsid cttyhack sh; }
   echo "[oaaa] image: $(basename "$NEWEST")"
 
   # debug: check what's registered
@@ -124,19 +124,19 @@ $ko"
   echo "[oaaa] loop: $(grep loop /proc/modules 2>/dev/null | head -1 || echo 'loop NOT in /proc/modules')"
 
   mkdir -p /erofs
-  mount -t erofs -o ro "$NEWEST" /erofs || { echo "[oaaa] FATAL: cannot mount erofs"; exec sh; }
+  mount -t erofs -o ro "$NEWEST" /erofs || { echo "[oaaa] FATAL: cannot mount erofs"; exec setsid cttyhack sh; }
 
   mkdir -p /data/overlay/upper /data/overlay/work /overlay
 
   mount -t overlay overlay \
     -o lowerdir=/erofs,upperdir=/data/overlay/upper,workdir=/data/overlay/work,index=off \
-    /overlay || { echo "[oaaa] FATAL: overlayfs failed"; exec sh; }
+    /overlay || { echo "[oaaa] FATAL: overlayfs failed"; exec setsid cttyhack sh; }
   echo "[oaaa] overlay ready, switching root..."
 
   if grep -q "oaaa.shell=2" /proc/cmdline 2>/dev/null; then
     echo "[oaaa] dropping to stage 2 shell (oaaa.shell=2)"
     echo "[oaaa] modules loaded, erofs at /erofs, overlay at /overlay, data at /data"
-    exec sh
+    exec setsid cttyhack sh
   fi
 
   mkdir -p /overlay/oaaa
@@ -155,22 +155,22 @@ else
   sleep 1
 
   DATA_DEV=$(blkid 2>/dev/null | grep 'LABEL="OAAA_DATA"' | head -1 | cut -d: -f1)
-  [ -z "$DATA_DEV" ] && { echo "[oaaa] FATAL: no OAAA_DATA"; exec sh; }
+  [ -z "$DATA_DEV" ] && { echo "[oaaa] FATAL: no OAAA_DATA"; exec setsid cttyhack sh; }
   echo "[oaaa] data: $DATA_DEV"
 
   mkdir -p /data
-  mount -t ext4 "$DATA_DEV" /data || { echo "[oaaa] FATAL: cannot mount data"; exec sh; }
+  mount -t ext4 "$DATA_DEV" /data || { echo "[oaaa] FATAL: cannot mount data"; exec setsid cttyhack sh; }
 
   if grep -q "oaaa.shell=1" /proc/cmdline 2>/dev/null; then
     echo "[oaaa] dropping to stage 1 shell (oaaa.shell=1)"
-    exec sh
+    exec setsid cttyhack sh
   fi
 
   NEWEST=$(ls -t /data/images/*.erofs 2>/dev/null | head -1)
-  [ -z "$NEWEST" ] && { echo "[oaaa] FATAL: no erofs images"; exec sh; }
+  [ -z "$NEWEST" ] && { echo "[oaaa] FATAL: no erofs images"; exec setsid cttyhack sh; }
 
   mkdir -p /erofs
-  mount -t erofs -o ro "$NEWEST" /erofs || { echo "[oaaa] FATAL: cannot mount erofs"; exec sh; }
+  mount -t erofs -o ro "$NEWEST" /erofs || { echo "[oaaa] FATAL: cannot mount erofs"; exec setsid cttyhack sh; }
 
   KVER=$(ls /erofs/lib/modules/ 2>/dev/null | head -1)
   echo "[oaaa] EROFS kernel: $KVER"
@@ -216,10 +216,17 @@ else
   (cd /tmp/initramfs-build && find . | cpio -H newc -o 2>/dev/null | gzip > /tmp/initramfs-oaaa-dynamic.img)
   echo "[oaaa] dynamic initramfs: $(du -sh /tmp/initramfs-oaaa-dynamic.img 2>/dev/null | cut -f1)"
 
+  # propagate a requested stage 2 shell drop through the kexec, so a
+  # "Shell (Stage 2)" boot still goes through the real kexec transition
+  # and has actual modules loaded, instead of skipping straight to stage 2
+  # code under the stage 1 kernel's own (module-less) initramfs.
+  SHELL2_FLAG=""
+  grep -q "oaaa.shell=2" /proc/cmdline 2>/dev/null && SHELL2_FLAG=" oaaa.shell=2"
+
   echo "[oaaa] kexecing to EROFS kernel..."
   kexec -l /erofs/boot/vmlinuz-linux \
     --initrd=/tmp/initramfs-oaaa-dynamic.img \
-    --append="console=tty0 console=ttyS0,115200 oaaa.stage=2" || { echo "[oaaa] FATAL: kexec failed"; exec sh; }
+    --append="console=tty0 console=ttyS0,115200 oaaa.stage=2$SHELL2_FLAG" || { echo "[oaaa] FATAL: kexec failed"; exec setsid cttyhack sh; }
 
   umount /erofs /data 2>/dev/null
 
@@ -237,5 +244,5 @@ else
 
   kexec -e
   echo "[oaaa] FATAL: kexec -e returned"
-  exec sh
+  exec setsid cttyhack sh
 fi

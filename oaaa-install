@@ -89,7 +89,7 @@ menuentry "OAAA Linux - Shell (Stage 1)" {
 }
 
 menuentry "OAAA Linux - Shell (Stage 2)" {
-  linux /boot/vmlinuz-linux console=ttyS0,115200 console=tty0 oaaa.stage=2 oaaa.shell=2
+  linux /boot/vmlinuz-linux console=ttyS0,115200 console=tty0 oaaa.shell=2
   initrd /initramfs-oaaa.img
 }
 EOF

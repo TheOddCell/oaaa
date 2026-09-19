@@ -1,0 +1,85 @@
+#!/bin/sh
+choose() {
+  gum choose --header.foreground="" --selected.foreground="" --cursor.foreground="" --no-show-help --header=""|tee /dev/stderr
+}
+if [ -z "$alreadyoat" ]; then
+  export alreadyoat="yes"
+  gum join "$(gum style --border=double --padding="0 1" oaaat)" "$(gum style --border=double --padding="0 1" the oaaa tool)"
+  gum style --border=double --padding="0 1" "What would you like to do?"
+fi
+state=""
+datadir=""
+choices=""
+if [ -d "/data" ]; then
+  datadir="/data"
+  if ! { set -- "$datadir"/images/* && [ "$#" -eq 1 ] && [ -e "$1" ]; }; then
+    choices="${choices}Rollback\n"
+  fi
+  if grep -q "oaaa.stage=2" /proc/cmdline 2>/dev/null; then
+    state="stage2"
+  else
+    state="stage1"
+    choices="${choices}Factory Reset\n"
+    if ! { set -- "$datadir"/images/* && [ "$#" -eq 1 ] && [ -e "$1" ]; }; then
+      choices="${choices}Delete Snapshot\n"
+    fi
+  fi
+elif [ -d "/oaaa" ]; then
+  state="loaded-system"
+  datadir="/oaaa"
+  current="$(basename "$(cat /sys/block/loop0/loop/backing_file 2>/dev/null)")"
+  if [ "$(ls "$datadir/images" | grep -vx "$current" | wc -l)" -ne 1 ]; then
+    choices="${choices}Rollback\nDelete Snapshot\n"
+  fi
+  choices="${choices}Download Update\n"
+else
+  echo "ERROR: not on oaaa"
+  exit 1
+fi
+if [ "$(id -u)" != 0 ]; then
+  echo "ERROR: not root"
+  exit 1
+fi
+if [ -z "$choices" ]; then
+  echo "ERROR: nothing to do"
+  exit 1
+fi
+choice="$(printf "$choices"|choose)"
+if [ "$choice" = "Rollback" ]; then
+  choice2="$(ls -t "$datadir/images"|choose)"
+  if [ -n "$choice2" ] && [ "$choice2" != "nothing selected" ]; then
+    touch "$datadir/images/$choice2"
+    echo "Rollback Ready!"
+  fi
+elif [ "$choice" = "Delete Snapshot" ]; then
+  if [ "$state" = "loaded-system" ]; then
+    current="$(basename "$(cat /sys/block/loop0/loop/backing_file 2>/dev/null)")"
+    choice2="$(ls -t "$datadir/images" | grep -vx "$current" | choose)"
+  else
+    choice2="$(ls -t "$datadir/images"|choose)"
+  fi
+  if [ -n "$choice2" ] && [ "$choice2" != "nothing selected" ]; then
+    rm "$datadir/images/$choice2"
+    echo "Snapshot Deleted!"
+  fi
+elif [ "$choice" = "Factory Reset" ]; then
+  echo "Are you sure? This will *DELETE ALL YOUR USER DATA* and is not recoverable."
+  if [ "$(printf 'Cancel\nYes\n'|choose)" = "Yes" ]; then
+    rm -rf "$datadir/overlay/upper"/*
+    echo "Done!"
+  fi
+elif [ "$choice" = "Download Update" ]; then
+  base="system-$(date +%Y-%m-%d)"
+  f="$datadir/images/$base.erofs"
+  i=1
+  while [ -e "$f" ]; do
+    i=$((i + 1))
+    f="$datadir/images/$base-$i.erofs"
+  done
+  curl -fL -o "$f" https://files.obsidianos.xyz/~odd/oaaa/system.erofs
+  echo "Updated!"
+else
+  echo "Done."
+  exit 0
+fi
+exec $0

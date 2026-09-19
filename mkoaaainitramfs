@@ -135,6 +135,10 @@ done
 cp "$SCRIPT_DIR/initramfs-init" "$OUT/init"
 chmod +x "$OUT/init"
 
+# oaaat - interactive rollback/snapshot/update tool, available at runtime
+cp "$SCRIPT_DIR/oaaat" "$OUT/bin/oaaat"
+chmod +x "$OUT/bin/oaaat"
+
 # marker file: only present in this (stage1) initramfs - stage2 strips it out
 # and stamps its own marker when it dynamically repacks this image (see
 # initramfs-init stage 1 section)
