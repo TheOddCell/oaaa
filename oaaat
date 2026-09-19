@@ -1,4 +1,8 @@
 #!/bin/sh
+if [ "$0" != "/oaaa/oaaat" ] && [ -f "/oaaa/oaaat" ]; then # yes hardcoded to oaaa, in the initramfs it will be using the same oaaat.
+  echo "Using system oaaat."
+  exec "/oaaa/oaaat"
+fi
 choose() {
   gum choose --header.foreground="" --selected.foreground="" --cursor.foreground="" --no-show-help --header=""|tee /dev/stderr
 }
@@ -10,6 +14,7 @@ fi
 state=""
 datadir=""
 choices=""
+choices="${choices}Factory Reset\nCleanup Reset\n"
 if [ -d "/data" ]; then
   datadir="/data"
   if ! { set -- "$datadir"/images/* && [ "$#" -eq 1 ] && [ -e "$1" ]; }; then
@@ -19,7 +24,6 @@ if [ -d "/data" ]; then
     state="stage2"
   else
     state="stage1"
-    choices="${choices}Factory Reset\n"
     if ! { set -- "$datadir"/images/* && [ "$#" -eq 1 ] && [ -e "$1" ]; }; then
       choices="${choices}Delete Snapshot\n"
     fi
@@ -30,7 +34,7 @@ elif [ -d "/oaaa" ]; then
   if [ "$(ls "$datadir/images" | wc -l)" -ne 1 ]; then
     choices="${choices}Rollback\nDelete Snapshot\n"
   fi
-  choices="${choices}Download System Update\nUpdate OAAA"
+  choices="${choices}Download System Update\nUpdate OAAA\nReboot"
 else
   echo "ERROR: not on oaaa"
   exit 1
@@ -43,6 +47,7 @@ if [ -z "$choices" ]; then
   echo "ERROR: nothing to do"
   exit 1
 fi
+choices="${choices}\nExit"
 choice="$(printf "$choices"|choose)"
 if [ "$choice" = "Rollback" ]; then
   choice2="$(ls -t "$datadir/images"|choose)"
@@ -64,8 +69,14 @@ elif [ "$choice" = "Delete Snapshot" ]; then
 elif [ "$choice" = "Factory Reset" ]; then
   echo "Are you sure? This will *DELETE ALL YOUR USER DATA* and is not recoverable."
   if [ "$(printf 'Cancel\nYes\n'|choose)" = "Yes" ]; then
-    rm -rf "$datadir/overlay/upper"/*
-    echo "Done!"
+    touch "$datadir/oaaa-factory-reset"
+    echo "Will do on restart."
+  fi
+elif [ "$choice" = "Cleanup Reset" ]; then
+  echo "Are you sure? This will *DELETE EVERYTHING* (except for your user data) and is not recoverable."
+  if [ "$(printf 'Cancel\nYes\n'|choose)" = "Yes" ]; then
+    touch "$datadir/oaaa-cleanup"
+    echo "Will do on restart."
   fi
 elif [ "$choice" = "Download System Update" ]; then
   base="system-$(date +%Y-%m-%d)"
@@ -82,6 +93,8 @@ elif [ "$choice" = "Update OAAA" ]; then
   cp /boot/initramfs-oaaa.img "$datadir"
   curl -fL -o "/boot/vmlinuz-linux" https://files.obsidianos.xyz/~odd/oaaa/vmlinuz-oaaa
   echo "Updated!"
+elif [ "$choice" = "Reboot" ]; then
+  reboot
 else
   echo "Done."
   exit 0

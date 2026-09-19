@@ -185,6 +185,16 @@ else
   mount -t ext4 "$DATA_DEV" /data || { echo "[oaaa] FATAL: cannot mount data"; exec setsid cttyhack sh; }
   mount_esp "$DATA_DEV"
 
+  if [ -f "/data/oaaa-factory-reset" ]; then
+    echo "[oaaa] pending factory reset - wiping overlay upper..."
+    rm -rf "/data/overlay/upper"
+    rm -f "/data/oaaa-factory-reset"
+  fi
+  if [ -f "/data/oaaa-cleanup" ]; then
+    echo "[oaaa] pending cleanup reset - wiping overlay upper except /home and /etc..."
+    find "/data/overlay/upper" -mindepth 1 -maxdepth 1 ! -name home ! -name etc -exec rm -rf {} + 2>/dev/null
+    rm -f "/data/oaaa-cleanup"
+  fi
   if grep -q "oaaa.shell=1" /proc/cmdline 2>/dev/null; then
     echo "[oaaa] dropping to stage 1 shell (oaaa.shell=1)"
     exec setsid cttyhack sh
