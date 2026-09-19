@@ -27,11 +27,10 @@ if [ -d "/data" ]; then
 elif [ -d "/oaaa" ]; then
   state="loaded-system"
   datadir="/oaaa"
-  current="$(basename "$(cat /sys/block/loop0/loop/backing_file 2>/dev/null)")"
-  if [ "$(ls "$datadir/images" | grep -vx "$current" | wc -l)" -ne 1 ]; then
+  if [ "$(ls "$datadir/images" | wc -l)" -ne 1 ]; then
     choices="${choices}Rollback\nDelete Snapshot\n"
   fi
-  choices="${choices}Download Update\n"
+  choices="${choices}Download System Update\nUpdate OAAA"
 else
   echo "ERROR: not on oaaa"
   exit 1
@@ -68,7 +67,7 @@ elif [ "$choice" = "Factory Reset" ]; then
     rm -rf "$datadir/overlay/upper"/*
     echo "Done!"
   fi
-elif [ "$choice" = "Download Update" ]; then
+elif [ "$choice" = "Download System Update" ]; then
   base="system-$(date +%Y-%m-%d)"
   f="$datadir/images/$base.erofs"
   i=1
@@ -77,6 +76,10 @@ elif [ "$choice" = "Download Update" ]; then
     f="$datadir/images/$base-$i.erofs"
   done
   curl -fL -o "$f" https://files.obsidianos.xyz/~odd/oaaa/system.erofs
+  echo "Updated!"
+elif [ "$choice" = "Update OAAA" ]; then
+  curl -fL -o "/boot/initramfs-oaaa.img" https://files.obsidianos.xyz/~odd/oaaa/initramfs-oaaa.img
+  curl -fL -o "/boot/vmlinuz-linux" https://files.obsidianos.xyz/~odd/oaaa/vmlinuz-oaaa
   echo "Updated!"
 else
   echo "Done."

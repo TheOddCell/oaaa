@@ -3,6 +3,21 @@
 # stage 1: builds a one-time-use stage2 initramfs in /tmp with modules baked in, kexecs EROFS kernel
 # stage 2: loads embedded modules, mounts overlay, switch_roots
 
+# mounts the ESP (partition 1 on the same disk as OAAA_DATA, partition 2) at
+# /boot - derived from the data device's own name rather than probed
+# separately, since we already know it works for finding OAAA_DATA and this
+# avoids depending on busybox blkid's (unreliable) GPT partition-type support.
+mount_esp() {
+  data_dev="$1"
+  esp_dev="$(echo "$data_dev" | sed 's/[0-9]*$/1/')"
+  mkdir -p /boot
+  if mount -t vfat "$esp_dev" /boot 2>/dev/null; then
+    echo "[oaaa] ESP mounted at /boot ($esp_dev)"
+  else
+    echo "[oaaa] WARNING: could not mount ESP ($esp_dev) at /boot"
+  fi
+}
+
 mount -t proc proc /proc
 mount -t sysfs sys /sys
 mount -t devtmpfs dev /dev
@@ -103,6 +118,11 @@ $ko"
     # write out this boot's successful load order so stage 1 can seed it
     # into next boot's initramfs as a fast-path cache
     echo "$LOAD_ORDER" | grep -v '^$' > /data/oaaa-modorder 2>/dev/null
+    mount_esp "$DATA_DEV"
+    # keep /data/oaaat in sync with whatever oaaat shipped in this initramfs,
+    # so the booted system always has the latest version without needing a
+    # separate update step for it specifically.
+    cp /bin/oaaat /data/oaaat 2>/dev/null && chmod +x /data/oaaat
   else
     echo "[oaaa] FATAL: OAAA_DATA not found"
     exec setsid cttyhack sh
@@ -142,6 +162,9 @@ $ko"
   mkdir -p /overlay/oaaa
   mount --bind /data /overlay/oaaa
 
+  mkdir -p /overlay/boot
+  grep -q ' /boot ' /proc/mounts 2>/dev/null && mount --move /boot /overlay/boot
+
   mkdir -p /overlay/proc /overlay/sys /overlay/dev
   mount --move /proc /overlay/proc
   mount --move /sys /overlay/sys
@@ -160,6 +183,7 @@ else
 
   mkdir -p /data
   mount -t ext4 "$DATA_DEV" /data || { echo "[oaaa] FATAL: cannot mount data"; exec setsid cttyhack sh; }
+  mount_esp "$DATA_DEV"
 
   if grep -q "oaaa.shell=1" /proc/cmdline 2>/dev/null; then
     echo "[oaaa] dropping to stage 1 shell (oaaa.shell=1)"
@@ -228,7 +252,7 @@ else
     --initrd=/tmp/initramfs-oaaa-dynamic.img \
     --append="console=tty0 console=ttyS0,115200 oaaa.stage=2$SHELL2_FLAG" || { echo "[oaaa] FATAL: kexec failed"; exec setsid cttyhack sh; }
 
-  umount /erofs /data 2>/dev/null
+  umount /erofs /data /boot 2>/dev/null
 
   # unbind USB HCDs before kexec - active DMA from xhci/ehci will cause kexec to hang
   echo "[oaaa] quiescing USB before kexec..."
