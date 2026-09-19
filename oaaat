@@ -79,6 +79,7 @@ elif [ "$choice" = "Download System Update" ]; then
   echo "Updated!"
 elif [ "$choice" = "Update OAAA" ]; then
   curl -fL -o "/boot/initramfs-oaaa.img" https://files.obsidianos.xyz/~odd/oaaa/initramfs-oaaa.img
+  cp /boot/initramfs-oaaa.img "$datadir"
   curl -fL -o "/boot/vmlinuz-linux" https://files.obsidianos.xyz/~odd/oaaa/vmlinuz-oaaa
   echo "Updated!"
 else
