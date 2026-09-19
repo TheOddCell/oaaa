@@ -4,7 +4,7 @@
 set -eu
 
 NPROC=$(nproc)
-KVER="7.0.8"
+KVER="7.2.6"
 KDIR="linux-$KVER"
 KTARBALL="$KDIR.tar.xz"
 KURL="https://cdn.kernel.org/pub/linux/kernel/v7.x/$KTARBALL"

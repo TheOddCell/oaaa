@@ -153,6 +153,12 @@ $ko"
     /overlay || { echo "[oaaa] FATAL: overlayfs failed"; exec setsid cttyhack sh; }
   echo "[oaaa] overlay ready, switching root..."
 
+  if [ -f "/data/oaaa-command-stage2" ]; then
+    sh /data/oaaa-command-stage2
+    rm /data/oaaa-command-stage2
+  fi
+
+  echo "[oaaa] thanks for using oaaa!"
   if grep -q "oaaa.shell=2" /proc/cmdline 2>/dev/null; then
     echo "[oaaa] dropping to stage 2 shell (oaaa.shell=2)"
     echo "[oaaa] modules loaded, erofs at /erofs, overlay at /overlay, data at /data"
@@ -169,6 +175,11 @@ $ko"
   mount --move /proc /overlay/proc
   mount --move /sys /overlay/sys
   mount --move /dev /overlay/dev
+
+  if [ -f "/data/oaaa-command-preboot" ]; then
+    sh /data/oaaa-command-preboot
+    rm /data/oaaa-command-preboot
+  fi
 
   exec switch_root /overlay /sbin/init
 
@@ -195,11 +206,15 @@ else
     find "/data/overlay/upper" -mindepth 1 -maxdepth 1 ! -name home ! -name etc -exec rm -rf {} + 2>/dev/null
     rm -f "/data/oaaa-cleanup"
   fi
+  if [ -f "/data/oaaa-command-stage1" ]; then
+    sh /data/oaaa-command-stage1
+    rm /data/oaaa-command-stage1
+  fi
+  echo "[oaaa] thanks for using oaaa!"
   if grep -q "oaaa.shell=1" /proc/cmdline 2>/dev/null; then
     echo "[oaaa] dropping to stage 1 shell (oaaa.shell=1)"
     exec setsid cttyhack sh
   fi
-
   NEWEST=$(ls -t /data/images/*.erofs 2>/dev/null | head -1)
   [ -z "$NEWEST" ] && { echo "[oaaa] FATAL: no erofs images"; exec setsid cttyhack sh; }
 
@@ -262,6 +277,11 @@ else
     --initrd=/tmp/initramfs-oaaa-dynamic.img \
     --append="console=tty0 console=ttyS0,115200 oaaa.stage=2$SHELL2_FLAG" || { echo "[oaaa] FATAL: kexec failed"; exec setsid cttyhack sh; }
 
+  if [ -f "/data/oaaa-command-pre2" ]; then
+    sh /data/oaaa-command-pre2
+    rm /data/oaaa-command-pre2
+  fi
+
   umount /erofs /data /boot 2>/dev/null
 
   # unbind USB HCDs before kexec - active DMA from xhci/ehci will cause kexec to hang
@@ -275,7 +295,6 @@ else
       echo -n "$addr" > "$drvpath/unbind" 2>/dev/null && echo "[oaaa] unbound $drv $addr"
     done
   done
-
   kexec -e
   echo "[oaaa] FATAL: kexec -e returned"
   exec setsid cttyhack sh
