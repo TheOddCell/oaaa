@@ -18,6 +18,21 @@ mount_esp() {
   fi
 }
 
+# runs every *.sh under /data/plugins/<stage>, in glob (lexical) order, each
+# as its own subshell - isolated on purpose, so a broken plugin can't corrupt
+# this script's own variables/state (a crash here means an unbootable
+# system). persistent by default (not one-shot); a plugin that wants to run
+# only once can `rm "$0"` as its own last line.
+run_plugins() {
+  dir="$1"
+  [ -d "$dir" ] || return 0
+  for f in "$dir"/*.sh; do
+    [ -f "$f" ] || continue
+    echo "[oaaa] plugin: $(basename "$f")"
+    sh "$f"
+  done
+}
+
 mount -t proc proc /proc
 mount -t sysfs sys /sys
 mount -t devtmpfs dev /dev
@@ -157,6 +172,7 @@ $ko"
     sh /data/oaaa-command-stage2
     rm /data/oaaa-command-stage2
   fi
+  run_plugins /data/plugins/stage2
 
   echo "[oaaa] thanks for using oaaa!"
   if grep -q "oaaa.shell=2" /proc/cmdline 2>/dev/null; then
@@ -180,6 +196,7 @@ $ko"
     sh /data/oaaa-command-preboot
     rm /data/oaaa-command-preboot
   fi
+  run_plugins /data/plugins/preboot
 
   exec switch_root /overlay /sbin/init
 
@@ -210,6 +227,7 @@ else
     sh /data/oaaa-command-stage1
     rm /data/oaaa-command-stage1
   fi
+  run_plugins /data/plugins/stage1
   echo "[oaaa] thanks for using oaaa!"
   if grep -q "oaaa.shell=1" /proc/cmdline 2>/dev/null; then
     echo "[oaaa] dropping to stage 1 shell (oaaa.shell=1)"
@@ -281,6 +299,7 @@ else
     sh /data/oaaa-command-pre2
     rm /data/oaaa-command-pre2
   fi
+  run_plugins /data/plugins/pre2
 
   umount /erofs /data /boot 2>/dev/null
 
