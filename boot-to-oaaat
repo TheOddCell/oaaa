@@ -1,0 +1,9 @@
+#!/bin/sh
+[ -d /oaaa ] || { echo "/oaaa not found"; exit 1; }
+[ "$(id -u)" -eq 0 ] || { echo "must be run as root"; exit 1; }
+cat <<EOF > /oaaa/oaaa-command-stage1
+#!/bin/sh
+/bin/oaaat
+/bin/reisub
+exit
+EOF

@@ -1,0 +1,11 @@
+#!/bin/sh
+# reisub - trigger the SysRq REISUB sequence for a clean emergency reboot
+# (Unraw keyboard, tErminate, kIll, Sync, Unmount/remount-ro, reBoot)
+set -eu
+
+echo 1 > /proc/sys/kernel/sysrq
+
+for c in r e i s u b; do
+  echo "$c" > /proc/sysrq-trigger
+  sleep 2
+done

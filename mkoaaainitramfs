@@ -139,6 +139,14 @@ chmod +x "$OUT/init"
 cp "$SCRIPT_DIR/oaaat" "$OUT/bin/oaaat"
 chmod +x "$OUT/bin/oaaat"
 
+# reisub - manual emergency SysRq REISUB reboot sequence, available at runtime
+cp "$SCRIPT_DIR/reisub" "$OUT/bin/reisub"
+chmod +x "$OUT/bin/reisub"
+
+# boot-to-oaaat - schedules oaaat to run automatically on next boot
+cp "$SCRIPT_DIR/boot-to-oaaat" "$OUT/bin/boot-to-oaaat"
+chmod +x "$OUT/bin/boot-to-oaaat"
+
 # marker file: only present in this (stage1) initramfs - stage2 strips it out
 # and stamps its own marker when it dynamically repacks this image (see
 # initramfs-init stage 1 section)

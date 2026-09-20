@@ -138,6 +138,7 @@ $ko"
     # so the booted system always has the latest version without needing a
     # separate update step for it specifically.
     cp /bin/oaaat /data/oaaat 2>/dev/null && chmod +x /data/oaaat
+    cp /bin/boot-to-oaaat /data/boot-to-oaaat 2>/dev/null && chmod +x /data/boot-to-oaaat
   else
     echo "[oaaa] FATAL: OAAA_DATA not found"
     exec setsid cttyhack sh
