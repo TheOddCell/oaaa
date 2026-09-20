@@ -33,19 +33,6 @@ run_plugins() {
   done
 }
 
-# runs an interactive rescue/debug shell. normally grabs a controlling tty via
-# setsid+cttyhack (needed since these shells are launched with no controlling
-# terminal of their own); oaaa.cttyhack=0 disables that for cases where
-# cttyhack itself is the thing misbehaving (e.g. grabbing the wrong tty on a
-# serial console) and a plain shell is more useful for debugging.
-ishell() {
-  if grep -q "oaaa.cttyhack=0" /proc/cmdline 2>/dev/null; then
-    sh "$@"
-  else
-    setsid cttyhack sh "$@"
-  fi
-}
-
 mount -t proc proc /proc
 mount -t sysfs sys /sys
 mount -t devtmpfs dev /dev
@@ -155,7 +142,7 @@ $ko"
     cp /bin/oaaa-update-grub /data/oaaa-update-grub 2>/dev/null && chmod +x /data/oaaa-update-grub
   else
     echo "[oaaa] FATAL: OAAA_DATA not found"
-    exec ishell
+    if grep -q "oaaa.cttyhack=0" /proc/cmdline 2>/dev/null; then exec sh; else exec setsid cttyhack sh; fi
   fi
 
   echo "[oaaa] stage 2: setting up overlay..."
@@ -166,7 +153,10 @@ $ko"
   done
 
   NEWEST=$(ls -t /data/images/*.erofs 2>/dev/null | head -1)
-  [ -z "$NEWEST" ] && { echo "[oaaa] FATAL: no erofs images"; exec ishell; }
+  if [ -z "$NEWEST" ]; then
+    echo "[oaaa] FATAL: no erofs images"
+    if grep -q "oaaa.cttyhack=0" /proc/cmdline 2>/dev/null; then exec sh; else exec setsid cttyhack sh; fi
+  fi
   echo "[oaaa] image: $(basename "$NEWEST")"
 
   # debug: check what's registered
@@ -174,17 +164,27 @@ $ko"
   echo "[oaaa] loop: $(grep loop /proc/modules 2>/dev/null | head -1 || echo 'loop NOT in /proc/modules')"
 
   mkdir -p /erofs
-  mount -t erofs -o ro "$NEWEST" /erofs || { echo "[oaaa] FATAL: cannot mount erofs"; exec ishell; }
+  if ! mount -t erofs -o ro "$NEWEST" /erofs; then
+    echo "[oaaa] FATAL: cannot mount erofs"
+    if grep -q "oaaa.cttyhack=0" /proc/cmdline 2>/dev/null; then exec sh; else exec setsid cttyhack sh; fi
+  fi
 
   mkdir -p /data/overlay/upper /data/overlay/work /overlay
 
-  mount -t overlay overlay \
+  if ! mount -t overlay overlay \
     -o lowerdir=/erofs,upperdir=/data/overlay/upper,workdir=/data/overlay/work,index=off \
-    /overlay || { echo "[oaaa] FATAL: overlayfs failed"; exec ishell; }
+    /overlay; then
+    echo "[oaaa] FATAL: overlayfs failed"
+    if grep -q "oaaa.cttyhack=0" /proc/cmdline 2>/dev/null; then exec sh; else exec setsid cttyhack sh; fi
+  fi
   echo "[oaaa] overlay ready, switching root..."
 
   if [ -f "/data/oaaa-command-stage2" ]; then
-    ishell /data/oaaa-command-stage2
+    if grep -q "oaaa.cttyhack=0" /proc/cmdline 2>/dev/null; then
+      sh /data/oaaa-command-stage2
+    else
+      setsid cttyhack sh /data/oaaa-command-stage2
+    fi
     rm /data/oaaa-command-stage2
   fi
   run_plugins /data/plugins/stage2
@@ -193,7 +193,7 @@ $ko"
   if grep -q "oaaa.shell=2" /proc/cmdline 2>/dev/null; then
     echo "[oaaa] dropping to stage 2 shell (oaaa.shell=2)"
     echo "[oaaa] modules loaded, erofs at /erofs, overlay at /overlay, data at /data"
-    exec ishell
+    if grep -q "oaaa.cttyhack=0" /proc/cmdline 2>/dev/null; then exec sh; else exec setsid cttyhack sh; fi
   fi
 
   mkdir -p /overlay/oaaa
@@ -208,7 +208,11 @@ $ko"
   mount --move /dev /overlay/dev
 
   if [ -f "/data/oaaa-command-preboot" ]; then
-    ishell /data/oaaa-command-preboot
+    if grep -q "oaaa.cttyhack=0" /proc/cmdline 2>/dev/null; then
+      sh /data/oaaa-command-preboot
+    else
+      setsid cttyhack sh /data/oaaa-command-preboot
+    fi
     rm /data/oaaa-command-preboot
   fi
   run_plugins /data/plugins/preboot
@@ -226,11 +230,17 @@ else
   sleep 1
 
   DATA_DEV=$(blkid 2>/dev/null | grep 'LABEL="OAAA_DATA"' | head -1 | cut -d: -f1)
-  [ -z "$DATA_DEV" ] && { echo "[oaaa] FATAL: no OAAA_DATA"; exec ishell; }
+  if [ -z "$DATA_DEV" ]; then
+    echo "[oaaa] FATAL: no OAAA_DATA"
+    if grep -q "oaaa.cttyhack=0" /proc/cmdline 2>/dev/null; then exec sh; else exec setsid cttyhack sh; fi
+  fi
   echo "[oaaa] data: $DATA_DEV"
 
   mkdir -p /data
-  mount -t ext4 "$DATA_DEV" /data || { echo "[oaaa] FATAL: cannot mount data"; exec ishell; }
+  if ! mount -t ext4 "$DATA_DEV" /data; then
+    echo "[oaaa] FATAL: cannot mount data"
+    if grep -q "oaaa.cttyhack=0" /proc/cmdline 2>/dev/null; then exec sh; else exec setsid cttyhack sh; fi
+  fi
   mount_esp "$DATA_DEV"
 
   if [ -f "/data/oaaa-factory-reset" ]; then
@@ -244,7 +254,11 @@ else
     rm -f "/data/oaaa-cleanup"
   fi
   if [ -f "/data/oaaa-command-stage1" ]; then
-    ishell /data/oaaa-command-stage1
+    if grep -q "oaaa.cttyhack=0" /proc/cmdline 2>/dev/null; then
+      sh /data/oaaa-command-stage1
+    else
+      setsid cttyhack sh /data/oaaa-command-stage1
+    fi
     rm /data/oaaa-command-stage1
   fi
   if grep -q "oaaa.oaaat=1" /proc/cmdline 2>/dev/null; then
@@ -256,13 +270,19 @@ else
   echo "[oaaa] thanks for using oaaa!"
   if grep -q "oaaa.shell=1" /proc/cmdline 2>/dev/null; then
     echo "[oaaa] dropping to stage 1 shell (oaaa.shell=1)"
-    exec ishell
+    if grep -q "oaaa.cttyhack=0" /proc/cmdline 2>/dev/null; then exec sh; else exec setsid cttyhack sh; fi
   fi
   NEWEST=$(ls -t /data/images/*.erofs 2>/dev/null | head -1)
-  [ -z "$NEWEST" ] && { echo "[oaaa] FATAL: no erofs images"; exec ishell; }
+  if [ -z "$NEWEST" ]; then
+    echo "[oaaa] FATAL: no erofs images"
+    if grep -q "oaaa.cttyhack=0" /proc/cmdline 2>/dev/null; then exec sh; else exec setsid cttyhack sh; fi
+  fi
 
   mkdir -p /erofs
-  mount -t erofs -o ro "$NEWEST" /erofs || { echo "[oaaa] FATAL: cannot mount erofs"; exec ishell; }
+  if ! mount -t erofs -o ro "$NEWEST" /erofs; then
+    echo "[oaaa] FATAL: cannot mount erofs"
+    if grep -q "oaaa.cttyhack=0" /proc/cmdline 2>/dev/null; then exec sh; else exec setsid cttyhack sh; fi
+  fi
 
   KVER=$(ls /erofs/lib/modules/ 2>/dev/null | head -1)
   echo "[oaaa] EROFS kernel: $KVER"
@@ -319,12 +339,19 @@ else
   grep -q "oaaa.cttyhack=0" /proc/cmdline 2>/dev/null && CTTYHACK_FLAG=" oaaa.cttyhack=0"
 
   echo "[oaaa] kexecing to EROFS kernel..."
-  kexec -l /erofs/boot/vmlinuz-linux \
+  if ! kexec -l /erofs/boot/vmlinuz-linux \
     --initrd=/tmp/initramfs-oaaa-dynamic.img \
-    --append="console=tty0 console=ttyS0,115200 oaaa.stage=2$SHELL2_FLAG$CTTYHACK_FLAG" || { echo "[oaaa] FATAL: kexec failed"; exec ishell; }
+    --append="console=tty0 console=ttyS0,115200 oaaa.stage=2$SHELL2_FLAG$CTTYHACK_FLAG"; then
+    echo "[oaaa] FATAL: kexec failed"
+    if grep -q "oaaa.cttyhack=0" /proc/cmdline 2>/dev/null; then exec sh; else exec setsid cttyhack sh; fi
+  fi
 
   if [ -f "/data/oaaa-command-pre2" ]; then
-    ishell /data/oaaa-command-pre2
+    if grep -q "oaaa.cttyhack=0" /proc/cmdline 2>/dev/null; then
+      sh /data/oaaa-command-pre2
+    else
+      setsid cttyhack sh /data/oaaa-command-pre2
+    fi
     rm /data/oaaa-command-pre2
   fi
   run_plugins /data/plugins/pre2
@@ -344,5 +371,5 @@ else
   done
   kexec -e
   echo "[oaaa] FATAL: kexec -e returned"
-  exec ishell
+  if grep -q "oaaa.cttyhack=0" /proc/cmdline 2>/dev/null; then exec sh; else exec setsid cttyhack sh; fi
 fi
