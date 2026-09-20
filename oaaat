@@ -45,7 +45,7 @@ elif [ -d "/oaaa" ]; then
   if [ "$(ls "$datadir/images" | wc -l)" -ne 1 ]; then
     choices="${choices}Rollback\nDelete Snapshot\n"
   fi
-  choices="${choices}Download System Update\nUpdate OAAA\n"
+  choices="${choices}Download System Update\nUpdate OAAA\nReboot To OAAAT\n"
 else
   echo "ERROR: not on oaaa"
   exit 1
@@ -59,7 +59,7 @@ if [ -z "$choices" ]; then
   echo "ERROR: nothing to do"
   exit 1
 fi
-choices="${choices}\nExit"
+choices="${choices}Exit\n"
 choice="$(printf "$choices"|choose)"
 if [ "$choice" = "Rollback" ]; then
   choice2="$(ls -t "$datadir/images"|choose)"
