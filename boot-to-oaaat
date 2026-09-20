@@ -7,3 +7,4 @@ cat <<EOF > /oaaa/oaaa-command-stage1
 /bin/reisub
 exit
 EOF
+reboot
