@@ -170,7 +170,7 @@ $ko"
   echo "[oaaa] overlay ready, switching root..."
 
   if [ -f "/data/oaaa-command-stage2" ]; then
-    sh /data/oaaa-command-stage2
+    setsid cttyhack sh /data/oaaa-command-stage2
     rm /data/oaaa-command-stage2
   fi
   run_plugins /data/plugins/stage2
@@ -194,7 +194,7 @@ $ko"
   mount --move /dev /overlay/dev
 
   if [ -f "/data/oaaa-command-preboot" ]; then
-    sh /data/oaaa-command-preboot
+    setsid cttyhack sh /data/oaaa-command-preboot
     rm /data/oaaa-command-preboot
   fi
   run_plugins /data/plugins/preboot
@@ -225,7 +225,7 @@ else
     rm -f "/data/oaaa-cleanup"
   fi
   if [ -f "/data/oaaa-command-stage1" ]; then
-    sh /data/oaaa-command-stage1
+    setsid cttyhack sh /data/oaaa-command-stage1
     rm /data/oaaa-command-stage1
   fi
   run_plugins /data/plugins/stage1
@@ -297,7 +297,7 @@ else
     --append="console=tty0 console=ttyS0,115200 oaaa.stage=2$SHELL2_FLAG" || { echo "[oaaa] FATAL: kexec failed"; exec setsid cttyhack sh; }
 
   if [ -f "/data/oaaa-command-pre2" ]; then
-    sh /data/oaaa-command-pre2
+    setsid cttyhack sh /data/oaaa-command-pre2
     rm /data/oaaa-command-pre2
   fi
   run_plugins /data/plugins/pre2

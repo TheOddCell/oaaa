@@ -45,11 +45,12 @@ elif [ -d "/oaaa" ]; then
   if [ "$(ls "$datadir/images" | wc -l)" -ne 1 ]; then
     choices="${choices}Rollback\nDelete Snapshot\n"
   fi
-  choices="${choices}Download System Update\nUpdate OAAA\nReboot\n"
+  choices="${choices}Download System Update\nUpdate OAAA\n"
 else
   echo "ERROR: not on oaaa"
   exit 1
 fi
+choices="${choices}Reboot\n"
 if [ "$(id -u)" != 0 ]; then
   echo "ERROR: not root"
   exit 1
