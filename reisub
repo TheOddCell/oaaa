@@ -11,9 +11,9 @@ echo 1 > /proc/sys/kernel/sysrq
 echo r > /proc/sysrq-trigger
 sleep 2
 
-killall5 -15 "$@"
+killall5 -15 -o $$ "$@" || true
 sleep 2
-killall5 -9 "$@"
+killall5 -9 -o $$ "$@" || true
 sleep 2
 
 for c in s u b; do

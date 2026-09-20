@@ -10,9 +10,9 @@ reisub() {
     printf '%s\n' 1 > /proc/sys/kernel/sysrq || return 1
     printf '%s' r > /proc/sysrq-trigger || return 1
     sleep 2
-    killall5 -15
+    killall5 -15 -o $$ || true
     sleep 2
-    killall5 -9
+    killall5 -9 -o $$ || true
     sleep 2
     printf '%s\n' s u b | while IFS= read -r key; do
       printf '%s' "$key" > /proc/sysrq-trigger || exit 1
