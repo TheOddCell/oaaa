@@ -228,6 +228,11 @@ else
     setsid cttyhack sh /data/oaaa-command-stage1
     rm /data/oaaa-command-stage1
   fi
+  if grep -q "oaaa.oaaat=1" /proc/cmdline 2>/dev/null; then
+    echo "[oaaa] oaaat requested (oaaa.oaaat=1)"
+    setsid cttyhack /bin/oaaat
+    /bin/reisub
+  fi
   run_plugins /data/plugins/stage1
   echo "[oaaa] thanks for using oaaa!"
   if grep -q "oaaa.shell=1" /proc/cmdline 2>/dev/null; then

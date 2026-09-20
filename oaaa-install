@@ -114,6 +114,11 @@ menuentry "OAAA Linux" {
   initrd /initramfs-oaaa.img
 }
 
+menuentry "OAAA Linux - oaaat (Stage 1)" {
+  linux /boot/vmlinuz-linux console=ttyS0,115200 console=tty0 oaaa.oaaat=1
+  initrd /initramfs-oaaa.img
+}
+
 menuentry "OAAA Linux - Shell (Stage 1)" {
   linux /boot/vmlinuz-linux console=ttyS0,115200 console=tty0 oaaa.shell=1
   initrd /initramfs-oaaa.img

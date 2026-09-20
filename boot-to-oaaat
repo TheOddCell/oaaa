@@ -4,6 +4,7 @@
 cat <<EOF > /oaaa/oaaa-command-stage1
 #!/bin/sh
 /bin/oaaat
+rm /data/oaaa-command-stage1
 /bin/reisub
 exit
 EOF
