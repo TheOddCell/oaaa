@@ -8,7 +8,13 @@ reisub() {
     reboot
   else
     printf '%s\n' 1 > /proc/sys/kernel/sysrq || return 1
-    printf '%s\n' r e i s u b | while IFS= read -r key; do
+    printf '%s' r > /proc/sysrq-trigger || return 1
+    sleep 2
+    killall5 -15
+    sleep 2
+    killall5 -9
+    sleep 2
+    printf '%s\n' s u b | while IFS= read -r key; do
       printf '%s' "$key" > /proc/sysrq-trigger || exit 1
       sleep 2
     done

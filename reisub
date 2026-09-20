@@ -1,11 +1,22 @@
 #!/bin/sh
-# reisub - trigger the SysRq REISUB sequence for a clean emergency reboot
+# reisub - trigger the REISUB sequence for a clean emergency reboot
 # (Unraw keyboard, tErminate, kIll, Sync, Unmount/remount-ro, reBoot)
+# tErminate/kIll are done via killall5 instead of the sysrq e/i keys so a
+# specific process can be spared with `reisub -o <pid>` (killall5's own
+# exclude flag), which sysrq's own term/kill has no equivalent for.
 set -eu
 
 echo 1 > /proc/sys/kernel/sysrq
 
-for c in r e i s u b; do
+echo r > /proc/sysrq-trigger
+sleep 2
+
+killall5 -15 "$@"
+sleep 2
+killall5 -9 "$@"
+sleep 2
+
+for c in s u b; do
   echo "$c" > /proc/sysrq-trigger
   sleep 2
 done
