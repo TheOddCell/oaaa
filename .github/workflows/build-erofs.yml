@@ -106,18 +106,31 @@ jobs:
           printf '%s\n' "$PRVKEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
 
-          cloudflared access tcp --hostname ssh.obsidianos.xyz --listener 127.0.0.1:2222 &
-          PID=$!
-          sleep 3
+          for attempt in 1 2 3; do
+            pkill -f 'cloudflared access tcp' 2>/dev/null || true
 
-          sftp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-            -i ~/.ssh/id_ed25519 -P 2222 odd@localhost <<'SFTP_EOF'
+            cloudflared access tcp --hostname ssh.obsidianos.xyz --listener 127.0.0.1:2222 &
+            PID=$!
+            sleep 3
+
+            if sftp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+              -i ~/.ssh/id_ed25519 -P 2222 odd@localhost <<'SFTP_EOF'
           put system.erofs Public/oaaa/system.erofs.new
           rename Public/oaaa/system.erofs.new Public/oaaa/system.erofs
           bye
           SFTP_EOF
+            then
+              kill "$PID" 2>/dev/null || true
+              exit 0
+            fi
 
-          kill "$PID"
+            kill "$PID" 2>/dev/null || true
+            echo "Upload attempt $attempt failed, retrying..."
+            sleep 5
+          done
+
+          echo "All upload attempts failed"
+          exit 1
 
   upload-initramfs:
     needs: [build-initramfs]
@@ -143,18 +156,31 @@ jobs:
           printf '%s\n' "$PRVKEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
 
-          cloudflared access tcp --hostname ssh.obsidianos.xyz --listener 127.0.0.1:2222 &
-          PID=$!
-          sleep 3
+          for attempt in 1 2 3; do
+            pkill -f 'cloudflared access tcp' 2>/dev/null || true
 
-          sftp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-            -i ~/.ssh/id_ed25519 -P 2222 odd@localhost <<'SFTP_EOF'
+            cloudflared access tcp --hostname ssh.obsidianos.xyz --listener 127.0.0.1:2222 &
+            PID=$!
+            sleep 3
+
+            if sftp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+              -i ~/.ssh/id_ed25519 -P 2222 odd@localhost <<'SFTP_EOF'
           put initramfs-oaaa.img Public/oaaa/initramfs-oaaa.img.new
           rename Public/oaaa/initramfs-oaaa.img.new Public/oaaa/initramfs-oaaa.img
           bye
           SFTP_EOF
+            then
+              kill "$PID" 2>/dev/null || true
+              exit 0
+            fi
 
-          kill "$PID"
+            kill "$PID" 2>/dev/null || true
+            echo "Upload attempt $attempt failed, retrying..."
+            sleep 5
+          done
+
+          echo "All upload attempts failed"
+          exit 1
 
   upload-kernel:
     needs: [build-kernel]
@@ -180,18 +206,31 @@ jobs:
           printf '%s\n' "$PRVKEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
 
-          cloudflared access tcp --hostname ssh.obsidianos.xyz --listener 127.0.0.1:2222 &
-          PID=$!
-          sleep 3
+          for attempt in 1 2 3; do
+            pkill -f 'cloudflared access tcp' 2>/dev/null || true
 
-          sftp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-            -i ~/.ssh/id_ed25519 -P 2222 odd@localhost <<'SFTP_EOF'
+            cloudflared access tcp --hostname ssh.obsidianos.xyz --listener 127.0.0.1:2222 &
+            PID=$!
+            sleep 3
+
+            if sftp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+              -i ~/.ssh/id_ed25519 -P 2222 odd@localhost <<'SFTP_EOF'
           put vmlinuz-oaaa Public/oaaa/vmlinuz-oaaa.new
           rename Public/oaaa/vmlinuz-oaaa.new Public/oaaa/vmlinuz-oaaa
           bye
           SFTP_EOF
+            then
+              kill "$PID" 2>/dev/null || true
+              exit 0
+            fi
 
-          kill "$PID"
+            kill "$PID" 2>/dev/null || true
+            echo "Upload attempt $attempt failed, retrying..."
+            sleep 5
+          done
+
+          echo "All upload attempts failed"
+          exit 1
 
   build-iso:
     needs: [build-erofs, build-initramfs, build-kernel]
@@ -259,15 +298,28 @@ jobs:
           printf '%s\n' "$PRVKEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
 
-          cloudflared access tcp --hostname ssh.obsidianos.xyz --listener 127.0.0.1:2222 &
-          PID=$!
-          sleep 3
+          for attempt in 1 2 3; do
+            pkill -f 'cloudflared access tcp' 2>/dev/null || true
 
-          sftp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-            -i ~/.ssh/id_ed25519 -P 2222 odd@localhost <<'SFTP_EOF'
+            cloudflared access tcp --hostname ssh.obsidianos.xyz --listener 127.0.0.1:2222 &
+            PID=$!
+            sleep 3
+
+            if sftp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+              -i ~/.ssh/id_ed25519 -P 2222 odd@localhost <<'SFTP_EOF'
           put oaaa.iso Public/oaaa/oaaa.iso.new
           rename Public/oaaa/oaaa.iso.new Public/oaaa/oaaa.iso
           bye
           SFTP_EOF
+            then
+              kill "$PID" 2>/dev/null || true
+              exit 0
+            fi
 
-          kill "$PID"
+            kill "$PID" 2>/dev/null || true
+            echo "Upload attempt $attempt failed, retrying..."
+            sleep 5
+          done
+
+          echo "All upload attempts failed"
+          exit 1
