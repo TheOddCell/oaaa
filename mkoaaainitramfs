@@ -147,6 +147,10 @@ chmod +x "$OUT/bin/reisub"
 cp "$SCRIPT_DIR/boot-to-oaaat" "$OUT/bin/boot-to-oaaat"
 chmod +x "$OUT/bin/boot-to-oaaat"
 
+# oaaa-update-grub - regenerates grub.cfg on a booted system's ESP, available at runtime
+cp "$SCRIPT_DIR/oaaa-update-grub" "$OUT/bin/oaaa-update-grub"
+chmod +x "$OUT/bin/oaaa-update-grub"
+
 # marker file: only present in this (stage1) initramfs - stage2 strips it out
 # and stamps its own marker when it dynamically repacks this image (see
 # initramfs-init stage 1 section)

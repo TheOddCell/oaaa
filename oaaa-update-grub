@@ -1,0 +1,64 @@
+#!/bin/sh
+# oaaa-update-grub - regenerates the boot menu (grub.cfg) on the ESP of the
+# currently *booted* oaaa system, without repartitioning, reformatting, or
+# rerunning grub-install. For picking up grub.cfg changes (like this menu
+# restructure) on a machine that was installed before they existed.
+#
+# deliberately refuses to run anywhere except a fully booted oaaa system -
+# not oaaat, not a stage1/stage2 rescue shell, not the installer environment.
+# /oaaa only exists in that state (stage 2 bind-mounts OAAA_DATA there right
+# before switch_root - see initramfs-init), so its absence proves we're not
+# in it.
+set -eu
+
+[ "$(id -u)" = "0" ] || { echo "must be run as root" >&2; exit 1; }
+[ -d /oaaa ] || { echo "Error: not running inside a booted oaaa system (missing /oaaa) - refusing to touch grub.cfg" >&2; exit 1; }
+
+GRUB_DIR="/boot/grub"
+[ -d "$GRUB_DIR" ] || { echo "Error: $GRUB_DIR not found - is the ESP mounted at /boot?" >&2; exit 1; }
+
+cat > "$GRUB_DIR/grub.cfg" <<'EOF'
+set timeout=5
+set default=0
+
+menuentry "OAAA" {
+  linux /boot/vmlinuz-linux console=ttyS0,115200 console=tty0
+  initrd /initramfs-oaaa.img
+}
+
+menuentry "OAAAT" {
+  linux /boot/vmlinuz-linux console=ttyS0,115200 console=tty0 oaaa.oaaat=1
+  initrd /initramfs-oaaa.img
+}
+
+submenu "Shells" {
+  submenu "Shell (Stage 1)" {
+    menuentry "setsid+cttyhack" {
+      linux /boot/vmlinuz-linux console=ttyS0,115200 console=tty0 oaaa.shell=1
+      initrd /initramfs-oaaa.img
+    }
+    menuentry "disable cttyhack" {
+      linux /boot/vmlinuz-linux console=ttyS0,115200 console=tty0 oaaa.shell=1 oaaa.cttyhack=0
+      initrd /initramfs-oaaa.img
+    }
+  }
+
+  submenu "Shell (Stage 2)" {
+    menuentry "setsid+cttyhack" {
+      linux /boot/vmlinuz-linux console=ttyS0,115200 console=tty0 oaaa.shell=2
+      initrd /initramfs-oaaa.img
+    }
+    menuentry "disable cttyhack" {
+      linux /boot/vmlinuz-linux console=ttyS0,115200 console=tty0 oaaa.shell=2 oaaa.cttyhack=0
+      initrd /initramfs-oaaa.img
+    }
+  }
+
+  menuentry "Booted Shell" {
+    linux /boot/vmlinuz-linux console=ttyS0,115200 console=tty0 oaaa.shell=3
+    initrd /initramfs-oaaa.img
+  }
+}
+EOF
+
+echo "[oaaa] grub.cfg updated: $GRUB_DIR/grub.cfg"

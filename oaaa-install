@@ -109,24 +109,43 @@ cat > /mnt/oaaa/esp/boot/grub/grub.cfg <<'EOF'
 set timeout=5
 set default=0
 
-menuentry "OAAA Linux" {
+menuentry "OAAA" {
   linux /boot/vmlinuz-linux console=ttyS0,115200 console=tty0
   initrd /initramfs-oaaa.img
 }
 
-menuentry "OAAA Linux - oaaat (Stage 1)" {
+menuentry "OAAAT" {
   linux /boot/vmlinuz-linux console=ttyS0,115200 console=tty0 oaaa.oaaat=1
   initrd /initramfs-oaaa.img
 }
 
-menuentry "OAAA Linux - Shell (Stage 1)" {
-  linux /boot/vmlinuz-linux console=ttyS0,115200 console=tty0 oaaa.shell=1
-  initrd /initramfs-oaaa.img
-}
+submenu "Shells" {
+  submenu "Shell (Stage 1)" {
+    menuentry "setsid+cttyhack" {
+      linux /boot/vmlinuz-linux console=ttyS0,115200 console=tty0 oaaa.shell=1
+      initrd /initramfs-oaaa.img
+    }
+    menuentry "disable cttyhack" {
+      linux /boot/vmlinuz-linux console=ttyS0,115200 console=tty0 oaaa.shell=1 oaaa.cttyhack=0
+      initrd /initramfs-oaaa.img
+    }
+  }
 
-menuentry "OAAA Linux - Shell (Stage 2)" {
-  linux /boot/vmlinuz-linux console=ttyS0,115200 console=tty0 oaaa.shell=2
-  initrd /initramfs-oaaa.img
+  submenu "Shell (Stage 2)" {
+    menuentry "setsid+cttyhack" {
+      linux /boot/vmlinuz-linux console=ttyS0,115200 console=tty0 oaaa.shell=2
+      initrd /initramfs-oaaa.img
+    }
+    menuentry "disable cttyhack" {
+      linux /boot/vmlinuz-linux console=ttyS0,115200 console=tty0 oaaa.shell=2 oaaa.cttyhack=0
+      initrd /initramfs-oaaa.img
+    }
+  }
+
+  menuentry "Booted Shell" {
+    linux /boot/vmlinuz-linux console=ttyS0,115200 console=tty0 oaaa.shell=3
+    initrd /initramfs-oaaa.img
+  }
 }
 EOF
 
