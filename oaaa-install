@@ -1,18 +1,49 @@
 #!/bin/bash
 # oaaa-install - installs oaaa system to a target disk
-# usage: oaaa-install <disk> <system.erofs>
+# usage: oaaa-install [--download] <disk> [system.erofs]
 # example: oaaa-install /dev/sda system-2026-06-21.erofs
+# example: oaaa-install --download /dev/sda
 set -eu
+
+OAAA_DOWNLOAD_URL="https://files.obsidianos.xyz/~odd/oaaa"
 
 check_command() {
   command -v "$1" &>/dev/null || { echo "Error: $1 not found"; exit 1; }
 }
 
 if [[ $EUID -ne 0 ]]; then echo "must be run as root"; exit 1; fi
-[[ $# -lt 2 ]] && { echo "usage: oaaa-install <disk> [erofs]"; exit 1; }
 
-DISK="$1"
-EROFS_IMG=${2:-system.erofs}
+DOWNLOAD=0
+ARGS=()
+for arg in "$@"; do
+  if [[ "$arg" == "--download" ]]; then
+    DOWNLOAD=1
+  else
+    ARGS+=("$arg")
+  fi
+done
+
+if [[ $DOWNLOAD -eq 1 ]]; then
+  [[ ${#ARGS[@]} -lt 1 ]] && { echo "usage: oaaa-install --download <disk>"; exit 1; }
+else
+  [[ ${#ARGS[@]} -lt 2 ]] && { echo "usage: oaaa-install [--download] <disk> [erofs]"; exit 1; }
+fi
+
+DISK="${ARGS[0]}"
+
+if [[ $DOWNLOAD -eq 1 ]]; then
+  check_command curl
+  SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+  EROFS_IMG="$SCRIPT_DIR/system.erofs"
+  echo "Downloading system.erofs from $OAAA_DOWNLOAD_URL..."
+  curl -fL -o "$EROFS_IMG" "$OAAA_DOWNLOAD_URL/system.erofs"
+  echo "Downloading initramfs-oaaa.img from $OAAA_DOWNLOAD_URL..."
+  curl -fL -o "$SCRIPT_DIR/initramfs-oaaa.img" "$OAAA_DOWNLOAD_URL/initramfs-oaaa.img"
+  echo "Downloading vmlinuz-oaaa from $OAAA_DOWNLOAD_URL..."
+  curl -fL -o "$SCRIPT_DIR/vmlinuz-oaaa" "$OAAA_DOWNLOAD_URL/vmlinuz-oaaa"
+else
+  EROFS_IMG=${ARGS[1]:-system.erofs}
+fi
 EROFS_NAME="$(basename "$EROFS_IMG")"
 
 [[ -b "$DISK" ]] || { echo "Error: $DISK is not a block device"; exit 1; }
