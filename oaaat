@@ -106,6 +106,14 @@ elif [ "$choice" = "Update OAAA" ]; then
   cp /boot/initramfs-oaaa.img "$datadir"
   curl -fL -o "/boot/vmlinuz-linux" https://files.obsidianos.xyz/~odd/oaaa/vmlinuz-oaaa
   echo "Updated!"
+elif [ "$choice" = "Reboot To OAAAT" ]; then
+  cat <<EOF > /oaaa/oaaa-command-stage1
+#!/bin/sh
+/bin/oaaat
+/bin/reisub
+exit
+EOF
+  reisub
 elif [ "$choice" = "Reboot" ]; then
   reisub
 else
