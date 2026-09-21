@@ -56,6 +56,11 @@ else
   echo "ERROR: not on oaaa"
   exit 1
 fi
+if [ -f "$datadir/oaaa-nomount" ]; then
+  choices="${choices}Enable mounting of /oaaa and /boot\n"
+else
+  choices="${choices}Disable mounting of /oaaa and /boot\n"
+fi
 choices="${choices}Reboot\n"
 if [ "$(id -u)" != 0 ]; then
   echo "ERROR: not root"
@@ -121,6 +126,10 @@ rm /data/oaaa-command-stage1
 exit
 EOF
   reisub
+elif [ "$choice" = "Disable mounting of /oaaa and /boot" ]; then
+  touch "$datadir/oaaa-nomount"
+elif [ "$choice" = "Enable mounting of /oaaa and /boot" ]; then
+  rm "$datadir/oaaa-nomount"
 elif [ "$choice" = "Reboot" ]; then
   reisub
 else

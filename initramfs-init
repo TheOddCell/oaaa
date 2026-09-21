@@ -196,11 +196,15 @@ $ko"
     if grep -q "oaaa.cttyhack=0" /proc/cmdline 2>/dev/null; then exec sh; else exec setsid cttyhack sh; fi
   fi
 
-  mkdir -p /overlay/oaaa
-  mount --bind /data /overlay/oaaa
+  if [ -f "/data/oaaa-nomount" ]; then
+    echo "[oaaa] oaaa-nomount present - skipping /oaaa and /boot mounts"
+  else
+    mkdir -p /overlay/oaaa
+    mount --bind /data /overlay/oaaa
 
-  mkdir -p /overlay/boot
-  grep -q ' /boot ' /proc/mounts 2>/dev/null && mount --move /boot /overlay/boot
+    mkdir -p /overlay/boot
+    grep -q ' /boot ' /proc/mounts 2>/dev/null && mount --move /boot /overlay/boot
+  fi
 
   mkdir -p /overlay/proc /overlay/sys /overlay/dev
   mount --move /proc /overlay/proc
@@ -244,8 +248,9 @@ else
   mount_esp "$DATA_DEV"
 
   if [ -f "/data/oaaa-factory-reset" ]; then
-    echo "[oaaa] pending factory reset - wiping overlay upper..."
+    echo "[oaaa] pending factory reset - wiping overlay upper and plugins..."
     rm -rf "/data/overlay/upper"
+    rm -rf "/data/plugins"
     rm -f "/data/oaaa-factory-reset"
   fi
   if [ -f "/data/oaaa-cleanup" ]; then

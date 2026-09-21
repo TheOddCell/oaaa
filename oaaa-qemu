@@ -9,12 +9,13 @@ DISK_SIZE="30G"
 FRESH=0
 NVME=0
 
-for arg in "$@"; do
-  case "$arg" in
+while [ $# -gt 0 ]; do
+  case "$1" in
     --fresh) FRESH=1 ;;
     --size)  shift; DISK_SIZE="$1" ;;
     --nvme)  NVME=1 ;;
   esac
+  shift
 done
 
 if [[ $EUID -ne 0 ]]; then echo "must be run as root"; exit 1; fi
