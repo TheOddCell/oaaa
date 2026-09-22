@@ -255,8 +255,74 @@ else
     rm -f "/data/oaaa-factory-reset"
   fi
   if [ -f "/data/oaaa-cleanup" ]; then
-    echo "[oaaa] pending cleanup reset - wiping overlay upper except /home and /etc..."
-    find "/data/overlay/upper" -mindepth 1 -maxdepth 1 ! -name home ! -name etc -exec rm -rf {} + 2>/dev/null
+    echo "[oaaa] pending cleanup reset - wiping overlay upper except /home, /etc, and select /var state..."
+    UPPER="/data/overlay/upper"
+    # paths (relative to $UPPER) that survive a cleanup reset even though
+    # the rest of /var doesn't - things whose loss feels like punishment
+    # (flatpak, bluetooth pairings, wifi, fingerprints, secure boot keys...),
+    # real user data that happens to live under /var (containers, VMs...),
+    # and small quality-of-life state (volume, brightness, power profile...).
+    KEEP_VAR="
+var/lib/flatpak
+var/lib/bluetooth
+var/lib/iwd
+var/lib/fprint
+var/lib/AccountsService
+var/lib/systemd/home
+var/lib/systemd/linger
+var/lib/systemd/credential.secret
+var/lib/sbctl
+var/lib/boltd
+var/lib/containers
+var/lib/docker
+var/lib/libvirt
+var/lib/machines
+var/lib/waydroid
+var/lib/systemd/backlight
+var/lib/systemd/rfkill
+var/lib/systemd/random-seed
+var/lib/alsa
+var/lib/power-profiles-daemon
+var/lib/colord
+var/lib/upower
+var/lib/NetworkManager
+var/lib/tailscale
+var/log/journal
+"
+    # true if $1 (a path relative to $UPPER) is itself a kept path, or is
+    # an ancestor directory that needs to be descended into to reach one
+    is_kept_or_ancestor() {
+      rel="$1"
+      for k in $KEEP_VAR; do
+        [ -z "$k" ] && continue
+        case "$k" in
+          "$rel"|"$rel"/*) return 0 ;;
+        esac
+      done
+      return 1
+    }
+    # depth-first walk of $1 (an absolute dir under $UPPER/var), deleting
+    # anything not itself a kept path and not an ancestor of one
+    prune_var() {
+      dir="$1"
+      for entry in "$dir"/* "$dir"/.[!.]* "$dir"/..?*; do
+        [ -e "$entry" ] || continue
+        rel="${entry#"$UPPER"/}"
+        keep=0
+        for k in $KEEP_VAR; do
+          [ -z "$k" ] && continue
+          [ "$rel" = "$k" ] && { keep=1; break; }
+        done
+        [ "$keep" -eq 1 ] && continue
+        if is_kept_or_ancestor "$rel"; then
+          [ -d "$entry" ] && prune_var "$entry"
+        else
+          rm -rf "$entry" 2>/dev/null
+        fi
+      done
+    }
+    find "$UPPER" -mindepth 1 -maxdepth 1 ! -name home ! -name etc ! -name var -exec rm -rf {} + 2>/dev/null
+    [ -d "$UPPER/var" ] && prune_var "$UPPER/var"
     rm -f "/data/oaaa-cleanup"
   fi
   if [ -f "/data/oaaa-command-stage1" ]; then

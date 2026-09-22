@@ -68,8 +68,9 @@ sudo ./mkoaaafs [pkg1 pkg2 ...]
 Any arguments are passed through as extra AUR packages installed via `yay`
 during the build (on top of the fixed pacstrap package list baked into the
 script). Sets up an `oobe` user with a first-login setup script (see
-"OOBE flow" below) baked into `.bashrc`, enables NetworkManager/gpm, then
-packs the result into `system.erofs` with `mkfs.erofs -z zstd`.
+"OOBE flow" below) baked into `.bashrc`, enables NetworkManager/gpm,
+adds the Flathub remote (`flatpak remote-add --if-not-exists flathub`),
+then packs the result into `system.erofs` with `mkfs.erofs -z zstd`.
 
 ### `mkoaaaiso [erofs] [initramfs] [vmlinuz]`
 Builds a live/rescue ISO (via `mkarchiso`) that bundles `oaaa-install`
@@ -179,11 +180,15 @@ Menu options (which ones show up depends on state - see below):
   entirely on next boot (after a confirmation prompt) - deletes all user
   data, unrecoverable.
 - **Cleanup Reset**: wipes everything under `/data/overlay/upper` on next
-  boot *except* entries literally named `home` and `etc` (after a
-  confirmation prompt). Note this does **not** restore `home`/`etc` from
-  the erofs lower layer - it just skips deleting whatever currently
-  exists there. If those paths were already destroyed, the system comes
-  back as an unconfigured fresh install, not your prior configuration.
+  boot *except* `home`, `etc`, and a specific list of `/var` paths worth
+  keeping (flatpak, bluetooth/wifi/fingerprint state, secure boot keys,
+  containers/VMs, volume/brightness/power-profile state, and the
+  systemd journal - see the full list in `initramfs-init`'s
+  `KEEP_VAR`) (after a confirmation prompt). Note this does **not**
+  restore `home`/`etc`/the kept `/var` paths from the erofs lower layer
+  - it just skips deleting whatever currently exists there. If those
+  paths were already destroyed, the system comes back as an
+  unconfigured fresh install, not your prior configuration.
 - **Download System Update**: downloads a new `system-<date>.erofs` into
   `images/` from `files.obsidianos.xyz`. Only shown when running from a
   fully booted system.
@@ -284,8 +289,8 @@ one-shot (deleted once acted on); a few are persistent toggles.
   On next stage 1 boot: deletes `overlay/upper` and `plugins/` entirely,
   then deletes itself.
 - **`oaaa-cleanup`** (one-shot) - set by oaaat's Cleanup Reset. On next
-  stage 1 boot: deletes everything under `overlay/upper` except `home`
-  and `etc`, then deletes itself.
+  stage 1 boot: deletes everything under `overlay/upper` except `home`,
+  `etc`, and the `KEEP_VAR` list of `/var` paths, then deletes itself.
 - **`oaaa-nomount`** (persistent toggle) - toggled by oaaat's
   Enable/Disable mounting menu item. When present, stage 2 skips
   bind-mounting `/data` to `/overlay/oaaa` and moving `/boot` to
@@ -317,10 +322,30 @@ one-shot (deleted once acted on); a few are persistent toggles.
 
 ## OOBE flow
 
-`mkoaaafs` bakes a first-login setup flow into the `oobe` user's
-`.bashrc` (guarded by `~/.oaaa-firstboot`, so it only runs once): asks
-for a username, a user password, an admin (root) password, offers
-`nmtui` for network setup, enables `plasmalogin`, renames the `oobe` account to
-the chosen username everywhere (`passwd`/`shadow`/`group`/`gshadow`),
-marks first-boot done, and reboots via `systemctl reboot` once
-configuration is complete.
+`mkoaaafs` sets up a `systemd` `getty@tty1` autologin drop-in for the
+`oobe` user, and bakes a menu-driven first-login flow into its `.bashrc`
+(guarded by `~/.oaaa-firstboot`). On first login it waits 10 seconds,
+then shows a `gum choose` menu (same style as `oaaat`'s own menu):
+
+- **Set up your user** - the actual OOBE: asks for a username, a user
+  password, an admin (root) password, offers `nmtui` for network setup,
+  enables `plasmalogin`, removes the autologin drop-in, renames the
+  `oobe` account to the chosen username everywhere
+  (`passwd`/`shadow`/`group`/`gshadow`), marks first-boot done, and
+  reboots via `systemctl reboot`.
+- **Shell** - breaks out of the menu loop into a normal shell without
+  marking first-boot done, so the menu reappears on the next login.
+- **Root Shell** - runs `sudo su`, then falls back into the menu once
+  that shell exits.
+- **Manual Setup** - after a Cancel/Yes confirmation: removes the
+  autologin drop-in, marks first-boot done, renames the account to
+  `user` everywhere, and `exec`s into `sudo su`.
+- **Load OAAAT** / **Reboot to OAAAT** - only shown when `/oaaa` is a
+  mountpoint (i.e. running from a fully booted system, not during the
+  initial build). Run `sudo /oaaa/oaaat` (falls back into the menu
+  afterward) or `sudo /oaaa/boot-to-oaaat` (reboots) respectively.
+- **Reboot** / **Shutdown** - `sudo reboot` / `sudo shutdown now`.
+
+No custom `/etc/issue` is written anywhere in this flow - autologin
+skips the login prompt entirely, so there's nothing for an issue banner
+to be shown before.

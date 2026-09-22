@@ -101,6 +101,12 @@ arch-chroot "oaaa_rootfs" useradd -m -G wheel -s /bin/bash "oobe" 2>/dev/null|tr
 arch-chroot "oaaa_rootfs" sh -c "echo '%wheel ALL=(ALL) NOPASSWD: ALL'>>/etc/sudoers" 2>/dev/null|true
 arch-chroot "oaaa_rootfs" visudo -c 2>/dev/null|true
 arch-chroot "oaaa_rootfs" passwd -d oobe 2>/dev/null|true
+arch-chroot "oaaa_rootfs" mkdir -p /etc/systemd/system/getty@tty1.service.d
+arch-chroot "oaaa_rootfs" tee /etc/systemd/system/getty@tty1.service.d/autologin.conf > /dev/null << 'EOF'
+[Service]
+ExecStart=
+ExecStart=-/usr/bin/agetty --autologin oobe --noclear %I $TERM
+EOF
 arch-chroot "oaaa_rootfs" sh -c "cat > /home/oobe/install-yay.sh" <<'EOF'
 #!/bin/bash
 cd ~
@@ -118,43 +124,77 @@ if [ "$#" -ge 1 ]; then
 fi
 arch-chroot "oaaa_rootfs" tee -a /home/oobe/.bashrc > /dev/null << 'ENDBASHRC'
 if ! [ -e ~/.oaaa-firstboot ]; then
-  clear
-  echo "Welcome to oaaa! - OOBE - User - Username"
-  printf "Choose a username: "
-  OLD=$(whoami)
-  read NEW
-  [ -z "$NEW" ] && { echo "Choosing default: user"; NEW=user; }
-  clear
-  echo "Welcome to oaaa! - OOBE - User - Password"
-  echo "Please choose a password for your user account:"
-  sudo passwd oobe
-  clear
-  echo "Welcome to oaaa! - OOBE - User - Admin Password"
-  echo "Please choose a password for the admin (root) account:"
-  sudo passwd
-  clear
-  echo "Welcome to oaaa! - OOBE - Networking"
-  read -r -p "Would you like to connect to/configure the internet? [Y/n] " response
-  if ! [[ "$response" =~ ^([Nn][oO]|[Nn])$ ]]; then
-    nmtui
-  fi
-  clear
-  echo "Welcome to oaaa! - OOBE - Configuring"
-  echo "_______________________________________________________________________________"
-  echo "[fancy user setup happening... please wait! This will take less than a minute.]"
-  echo "[after the user setup, the system will reboot.________________________________]"
-  printf '\\S{PRETTY_NAME} \\r (\\l)\n' | sudo tee /etc/issue > /dev/null
-  sudo systemctl enable plasmalogin
-  sudo chsh -s /usr/bin/zsh oobe
-  touch ~/.oaaa-firstboot
-  sudo mv /home/oobe "/home/$NEW"
-  sudo sed -i "s|oobe|$NEW|g" /etc/passwd /etc/shadow /etc/group /etc/gshadow
-  sudo systemctl reboot 2>/dev/null >/dev/null
-  sleep infinity
+  choose() {
+    gum choose --header.foreground="" --selected.foreground="" --cursor.foreground="" --no-show-help --header=""
+  }
+  sleep 10
+  while true; do
+    choices="Set up your user\nShell\nRoot Shell\nManual Setup\n"
+    if mountpoint -q /oaaa 2>/dev/null; then
+      choices="${choices}Load OAAAT\nReboot to OAAAT\n"
+    fi
+    choices="${choices}Reboot\nShutdown\n"
+    choice="$(printf "$choices"|choose)"
+    if [ "$choice" = "Set up your user" ]; then
+      clear
+      echo "Welcome to oaaa! - OOBE - User - Username"
+      printf "Choose a username: "
+      read NEW
+      [ -z "$NEW" ] && { echo "Choosing default: user"; NEW=user; }
+      clear
+      echo "Welcome to oaaa! - OOBE - User - Password"
+      echo "Please choose a password for your user account:"
+      sudo passwd oobe
+      clear
+      echo "Welcome to oaaa! - OOBE - User - Admin Password"
+      echo "Please choose a password for the admin (root) account:"
+      sudo passwd
+      clear
+      echo "Welcome to oaaa! - OOBE - Networking"
+      read -r -p "Would you like to connect to/configure the internet? [Y/n] " response
+      if ! [[ "$response" =~ ^([Nn][oO]|[Nn])$ ]]; then
+        nmtui
+      fi
+      clear
+      echo "Welcome to oaaa! - OOBE - Configuring"
+      echo "_______________________________________________________________________________"
+      echo "[fancy user setup happening... please wait! This will take less than a minute.]"
+      echo "[after the user setup, the system will reboot.________________________________]"
+      sudo systemctl enable plasmalogin
+      sudo chsh -s /usr/bin/zsh oobe
+      sudo rm -rf /etc/systemd/system/getty@tty1.service.d
+      touch ~/.oaaa-firstboot
+      sudo mv /home/oobe "/home/$NEW"
+      sudo sed -i "s|oobe|$NEW|g" /etc/passwd /etc/shadow /etc/group /etc/gshadow
+      sudo systemctl reboot 2>/dev/null >/dev/null
+      sleep infinity
+    elif [ "$choice" = "Shell" ]; then
+      break
+    elif [ "$choice" = "Root Shell" ]; then
+      sudo su
+    elif [ "$choice" = "Manual Setup" ]; then
+      echo "Are you sure? This will rename your account to 'user', disable the OOBE, and drop you into a root shell."
+      if [ "$(printf 'Cancel\nYes\n'|choose)" = "Yes" ]; then
+        sudo rm -rf /etc/systemd/system/getty@tty1.service.d
+        touch ~/.oaaa-firstboot
+        sudo mv /home/oobe /home/user
+        sudo sed -i "s|oobe|user|g" /etc/passwd /etc/shadow /etc/group /etc/gshadow
+        exec sudo su
+      fi
+    elif [ "$choice" = "Load OAAAT" ]; then
+      sudo /oaaa/oaaat
+    elif [ "$choice" = "Reboot to OAAAT" ]; then
+      sudo /oaaa/boot-to-oaaat
+    elif [ "$choice" = "Reboot" ]; then
+      sudo reboot
+    elif [ "$choice" = "Shutdown" ]; then
+      sudo shutdown now
+    fi
+  done
 fi
 ENDBASHRC
-arch-chroot oaaa_rootfs bash -c 'printf "Welcome to oaaa!\nTo set up your user, please log in as the oobe user account in the prompt.\nThanks for using oaaa!\n" > /etc/issue'
 arch-chroot "oaaa_rootfs" systemctl enable NetworkManager gpm 2>/dev/null|true
+arch-chroot "oaaa_rootfs" flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 cleanup_rootfs "oaaa_rootfs"
 mkfs.erofs -z zstd -x-1 system.erofs "oaaa_rootfs"
 cleanup_rootfs "oaaa_rootfs"
