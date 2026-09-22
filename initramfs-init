@@ -25,6 +25,7 @@ mount_esp() {
 # only once can `rm "$0"` as its own last line.
 run_plugins() {
   dir="$1"
+  grep -q "oaaa.plugins=0" /proc/cmdline 2>/dev/null && return 0
   [ -d "$dir" ] || return 0
   for f in "$dir"/*.sh; do
     [ -f "$f" ] || continue

@@ -110,12 +110,12 @@ elif [ "$choice" = "Download System Update" ]; then
     i=$((i + 1))
     f="$datadir/images/$base-$i.erofs"
   done
-  curl -fL -o "$f" https://files.obsidianos.xyz/~odd/oaaa/system.erofs
+  curl -fL -o "$f.part" https://files.obsidianos.xyz/~odd/oaaa/system.erofs && mv "$f.part" "$f"
   echo "Updated!"
 elif [ "$choice" = "Update OAAA" ]; then
-  curl -fL -o "/boot/initramfs-oaaa.img" https://files.obsidianos.xyz/~odd/oaaa/initramfs-oaaa.img
+  curl -fL -o "/boot/initramfs-oaaa.img.part" https://files.obsidianos.xyz/~odd/oaaa/initramfs-oaaa.img && mv "/boot/initramfs-oaaa.img.part" "/boot/initramfs-oaaa.img"
   cp /boot/initramfs-oaaa.img "$datadir"
-  curl -fL -o "/boot/vmlinuz-linux" https://files.obsidianos.xyz/~odd/oaaa/vmlinuz-oaaa
+  curl -fL -o "/boot/vmlinuz-linux.part" https://files.obsidianos.xyz/~odd/oaaa/vmlinuz-oaaa && mv "/boot/vmlinuz-linux.part" "/boot/vmlinuz-linux"
   echo "Updated!"
 elif [ "$choice" = "Reboot To OAAAT" ]; then
   cat <<EOF > /oaaa/oaaa-command-stage1

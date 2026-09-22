@@ -138,7 +138,6 @@ if ! [ -e ~/.oaaa-firstboot ]; then
   if ! [[ "$response" =~ ^([Nn][oO]|[Nn])$ ]]; then
     nmtui
   fi
-  sudo shutdown -r +1
   clear
   echo "Welcome to oaaa! - OOBE - Configuring"
   echo "_______________________________________________________________________________"
