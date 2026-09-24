@@ -31,7 +31,7 @@ fi
 state=""
 datadir=""
 choices=""
-choices="${choices}Factory Reset\nCleanup Reset\n"
+choices="${choices}Factory Reset\nCleanup Reset\nBack up user data\nRestore user data\n"
 if [ -d "/data" ]; then
   datadir="/data"
   if ! { set -- "$datadir"/images/* && [ "$#" -eq 1 ] && [ -e "$1" ]; }; then
@@ -118,7 +118,7 @@ elif [ "$choice" = "Update OAAA" ]; then
   curl -fL -o "/boot/vmlinuz-linux.part" https://files.obsidianos.xyz/~odd/oaaa/vmlinuz-oaaa && mv "/boot/vmlinuz-linux.part" "/boot/vmlinuz-linux"
   echo "Updated!"
 elif [ "$choice" = "Reboot To OAAAT" ]; then
-  cat <<EOF > /oaaa/oaaa-command-stage1
+  cat <<EOF > "$datadir/oaaa-command-stage1"
 #!/bin/sh
 /bin/oaaat
 rm /data/oaaa-command-stage1
@@ -130,6 +130,33 @@ elif [ "$choice" = "Disable mounting of /oaaa and /boot" ]; then
   touch "$datadir/oaaa-nomount"
 elif [ "$choice" = "Enable mounting of /oaaa and /boot" ]; then
   rm "$datadir/oaaa-nomount"
+elif [ "$choice" = "Back up user data" ]; then
+  cat <<'EOF' > "$datadir/oaaa-command-stage1"
+#!/bin/sh
+mkdir -p /data/backups
+base="$(date +%Y-%m-%d)"
+f="/data/backups/$base.tar.zstd"
+i=1
+while [ -e "$f" ]; do
+  i=$((i + 1))
+  f="/data/backups/$base-$i.tar.zstd"
+done
+tar -cv -C /data/overlay/upper/ . | zstd -o "$f"
+EOF
+  echo "Will do on reboot."
+elif [ "$choice" = "Restore user data" ]; then
+  if [ -d "$datadir/backups" ] && [ -n "$(ls -A "$datadir/backups" 2>/dev/null)" ]; then
+    choice2="$(ls -t "$datadir/backups"|choose)"
+    if [ -n "$choice2" ] && [ "$choice2" != "nothing selected" ]; then
+      cat <<EOF > "$datadir/oaaa-command-stage1"
+#!/bin/sh
+rm -rf /data/overlay/upper
+mkdir /data/overlay/upper
+zstd -dc "/data/backups/$choice2" | tar -xv -C /data/overlay/upper/
+EOF
+      reisub
+    fi
+  fi
 elif [ "$choice" = "Reboot" ]; then
   reisub
 else
