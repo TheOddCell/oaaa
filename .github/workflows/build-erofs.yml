@@ -20,7 +20,7 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          pacman -Sy --noconfirm --needed erofs-utils arch-install-scripts psmisc util-linux openssh curl
+          pacman -Syu --noconfirm --needed erofs-utils arch-install-scripts psmisc util-linux openssh curl
 
       - name: Build erofs
         run: ./mkoaaafs
@@ -44,7 +44,7 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          pacman -Sy --noconfirm --needed base-devel wget openssh curl go
+          pacman -Syu --noconfirm --needed base-devel wget openssh curl go
 
       - name: Build initramfs
         run: ./mkoaaainitramfs
@@ -67,7 +67,7 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          pacman -Sy --noconfirm --needed base-devel bc flex bison libelf ncurses openssh curl wget
+          pacman -Syu --noconfirm --needed base-devel bc flex bison libelf ncurses openssh curl wget
 
       - name: Build kernel
         run: ./mkoaaakernel
@@ -260,7 +260,7 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          pacman -Sy --noconfirm --needed archiso openssh curl
+          pacman -Syu --noconfirm --needed archiso openssh curl
 
       - name: Build ISO
         run: |
